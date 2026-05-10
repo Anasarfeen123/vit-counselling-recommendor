@@ -2,3 +2,5 @@ venv/
 __pycache__/
 credentials.json
 VIT Counselling Data Collection 2025 (Responses) - Form Responses 1.csv
+config.bat
+node_modules
