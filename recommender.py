@@ -71,7 +71,7 @@ def calculate_probability(user_rank, closing_rank, responses):
     elif responses == 2:
         uncertainty_penalty = 5
     else:
-        uncertainty_penalty = 7
+        uncertainty_penalty = 6
 
     # Large buffer stays safe even with small sample
     if rank_buffer >= 5000 or buffer_ratio >= 0.25:
@@ -178,21 +178,21 @@ def get_branch_bonus(branch):
 
 # =====================================================
 # CAMPUS PRIORITY
-# Vellore and Chennai are Tier-0 (roughly equal).
-# AP and Bhopal are deprioritised.
+# Vellore is clearly preferred over Chennai.
+# AP and Bhopal are deprioritised significantly.
 # =====================================================
 
 CAMPUS_TIERS = {
-    "Vellore":   0,
-    "Chennai":   0,
-    "Amaravati": 1,
-    "Ap":        1,
-    "Bhopal":    2,
+    "Vellore":   0,   # Tier-0: first choice
+    "Chennai":   1,   # Tier-1: solid second
+    "Amaravati": 3,
+    "Ap":        3,
+    "Bhopal":    5,
 }
 
 CAMPUS_BONUSES = {
-    "Vellore":   6,
-    "Chennai":   5,
+    "Vellore":   10,  # Strong preference
+    "Chennai":    4,  # Decent but clearly behind Vellore
     "Amaravati": -3,
     "Ap":        -3,
     "Bhopal":    -10,
@@ -204,7 +204,7 @@ def get_campus_tier(campus):
 
 
 def get_campus_priority(campus):
-    """Tiebreaker within same tier: Vellore slightly ahead of Chennai."""
+    """Sort tiebreak: Vellore before Chennai."""
     return {"Vellore": 0, "Chennai": 1}.get(campus, 10)
 
 
@@ -337,17 +337,25 @@ def recommend(user_rank, sort_by="recommended"):
 
     # ── Sort keys ──────────────────────────────────────────────────────────
 
+    # Recommended sort order (outermost → innermost):
+    #   fee → branch → campus (Vellore > Chennai) → probability
+    #
+    # Produces:
+    #   Vellore Cat1 Core → Chennai Cat1 Core
+    #   → Vellore Cat1 AIML → Chennai Cat1 AIML → ...
+    #   → Vellore Cat2 Core → Chennai Cat2 Core → ...
+    #   AP / Bhopal only appear after all Vellore+Chennai rows
     sort_keys = {
         "recommended": lambda x: (
-            get_chance_priority(x["chance"]),   # Safe first
-            x["campus_tier"],                   # Vellore/Chennai before AP/Bhopal
-            x["branch_priority"],               # CSE Core > AIML > IoT etc.
-            x["fee_priority"],                  # cheaper when branch is equal
-            x["campus_priority"],               # Vellore > Chennai tiebreak
-            -x["probability"],                  # higher prob first
-            -x["responses"],                    # more data first
-            -x["recommendation_score"],
-            x["branch"],                        # alphabetic stability
+            get_chance_priority(x["chance"]),                  # 1. Safe first
+            x["fee_priority"],                                 # 2. Cat1 → Cat2 → Cat3 ...
+            x["branch_priority"],                              # 3. Core > AIML > DS > IoT ...
+            x["campus_tier"],                                  # 4. Vellore(0) before Chennai(1) before AP/Bhopal
+            x["campus_priority"],                              # 5. Fine-grain tiebreak within same tier
+            -x["probability"],                                 # 6. Higher probability first
+            -x["responses"],                                   # 7. More data first
+            -x["recommendation_score"],                        # 8. Composite score
+            x["branch"],                                       # 9. Alphabetic stability
         ),
         "probability": lambda x: (
             -x["probability"],
@@ -400,11 +408,12 @@ def recommend(user_rank, sort_by="recommended"):
 # =====================================================
 
 def get_recommendations_by_category(recommendations):
+    MAX_RESULTS = 20
     return {
-        "Safe":          [r for r in recommendations if r["chance"] == "Safe"],
-        "Moderate":      [r for r in recommendations if r["chance"] == "Moderate"],
-        "Dream":         [r for r in recommendations if r["chance"] == "Dream"],
-        "Very Unlikely": [r for r in recommendations if r["chance"] == "Very Unlikely"],
+        "Safe":          [r for r in recommendations if r["chance"] == "Safe"][:MAX_RESULTS],
+        "Moderate":      [r for r in recommendations if r["chance"] == "Moderate"][:MAX_RESULTS],
+        "Dream":         [r for r in recommendations if r["chance"] == "Dream"][:MAX_RESULTS],
+        "Very Unlikely": [r for r in recommendations if r["chance"] == "Very Unlikely"][:MAX_RESULTS],
     }
 
 

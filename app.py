@@ -24,7 +24,7 @@ st.set_page_config(
 # =====================================================
 
 theme_mode = st.sidebar.segmented_control(
-    "Theme", ["Light", "Dark"], default="Light", key="theme_mode",
+    "Theme", ["Light", "Dark (Beta)"], default="Light", key="theme_mode",
 )
 
 THEMES = {
@@ -77,7 +77,7 @@ THEMES = {
         "dream_border": "#fda4af",
         "dream_text": "#9f1239",
     },
-    "Dark": {
+    "Dark (Beta)": {
         "bg": "#0b1120",
         "surface": "#172033",
         "input": "#1e2d45",
@@ -127,7 +127,8 @@ THEMES = {
         "dream_text": "#fecaca",
     },
 }
-theme = THEMES[theme_mode]
+THEMES["Dark"] = THEMES["Dark (Beta)"]
+theme = THEMES["Dark" if theme_mode == "Dark (Beta)" else theme_mode]
 
 # =====================================================
 # CSS
@@ -1054,11 +1055,7 @@ st.markdown("""
 <b>Moderate (40–75%)</b> — Possible but not guaranteed. Use as backups.<br>
 <b>Reach (15–40%)</b> — Unlikely. Include only as last-resort options.<br><br>
 <strong>About the model</strong><br>
-Closing ranks use the <strong>90th percentile</strong> of observed data (not the maximum) so a single outlier
-doesn't inflate the cutoff. Standard deviation of observed ranks is factored in — options with volatile
-historical cutoffs receive lower probabilities. Both the historical Excel dataset and live Google Form
-responses are merged and deduplicated before analysis.<br><br>
-<em>Disclaimer: Predictions are based on historical allotment data. Actual results may vary.
-Always consult official VIT counselling resources before making final decisions.</em>
+Closing ranks use the <strong>90th percentile</strong> of observed data (not the maximum) so a single outlier doesn't inflate the cutoff. Standard deviation of observed ranks is factored in — options with volatile historical cutoffs receive lower probabilities. Both the historical Excel dataset and live Google Form responses are merged and deduplicated before analysis.<br><br>
+<strong style="color:#e11d48;">Disclaimer</strong>: <em>This tool is <u>unofficial</u> and not affiliated with VIT or any official counselling authority. All predictions are based on historical data and statistical models, and may not reflect actual results. The recommendations are for informational purposes only and are not perfect or guaranteed. Always verify with official VIT counselling resources before making any final decisions. Use at your own discretion.</em>
 </div>
 """, unsafe_allow_html=True)
