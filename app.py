@@ -181,11 +181,31 @@ st.markdown("""
     [role="listbox"] li {
         color: var(--vit-text) !important;
     }
+    /* Multiselect tag improvements */
     [data-baseweb="tag"] {
         background-color: #eef2ff !important;
         color: #312e81 !important;
+        padding: 4px 8px !important;
+        margin: 2px !important;
+        border-radius: 4px !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        max-width: 100% !important;
     }
-    [data-baseweb="tag"] span { color: #312e81 !important; }
+    [data-baseweb="tag"] span { 
+        color: #312e81 !important;
+        word-break: break-word !important;
+        overflow: visible !important;
+    }
+    /* Fix multiselect container height */
+    [data-baseweb="select"].stMultiSelect [data-baseweb="base-select"],
+    [data-baseweb="select"] {
+        min-height: auto !important;
+        flex-wrap: wrap !important;
+    }
+    [data-testid="stMultiSelect"] {
+        min-height: auto !important;
+    }
     [data-testid="stSidebar"] button[kind="primary"] {
         background: var(--vit-primary) !important;
         border-color: var(--vit-primary) !important;
@@ -381,6 +401,21 @@ st.markdown("""
     .rank-big {
         font-size: 2rem; font-weight: 800; color: var(--vit-primary);
         line-height: 1; margin: 6px 0 2px;
+    }
+
+    /* Sidebar multiselect improvements */
+    [data-testid="stSidebar"] [data-baseweb="tag"] {
+        padding: 5px 10px !important;
+        margin: 3px 3px !important;
+        font-size: 0.9rem !important;
+        white-space: normal !important;
+        overflow: visible !important;
+    }
+    [data-testid="stSidebar"] [data-baseweb="select"] {
+        flex-wrap: wrap !important;
+    }
+    [data-testid="stSidebar"] [data-baseweb="base-select"] {
+        min-height: auto !important;
     }
 
     /* Streamlit overrides */
@@ -768,12 +803,42 @@ results_limit = st.sidebar.slider("Max results per category", min_value=5, max_v
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔍 Filters")
 
+# Quick filter for major branches
+st.sidebar.markdown("**Quick Filter**")
+branch_filter = st.sidebar.segmented_control(
+    "Select branch group",
+    ["All branches", "Just CSE", "ECE+EEE"],
+    default="All branches",
+    key="branch_filter"
+)
+
+# Define branch groups
+cse_programs = ["CSE Core", "CSE AIML", "CSE DS", "CSE Cybersecurity", "CSE Business Systems", "CSE Robotics", "CSE IoT", "CSE CPS"]
+ece_eee_programs = ["ECE Core", "Electrical"]
+
+# Campus filter
 all_campuses = sorted(master_df["Campus"].unique().tolist())
 selected_campuses = st.sidebar.multiselect("Campus", all_campuses, default=all_campuses)
 
+# Branch filter with preset
 all_branches = sorted(master_df["Branch"].unique().tolist())
-selected_branches = st.sidebar.multiselect("Branch", all_branches, default=all_branches)
 
+# Apply quick filter to default selection
+if branch_filter == "Just CSE":
+    default_branches = [b for b in all_branches if b in cse_programs]
+elif branch_filter == "ECE+EEE":
+    default_branches = [b for b in all_branches if b in ece_eee_programs]
+else:
+    default_branches = all_branches
+
+selected_branches = st.sidebar.multiselect(
+    "Branch (customize selection below)",
+    all_branches,
+    default=default_branches,
+    help="Use Quick Filter above, or customize here"
+)
+
+# Fee filter
 all_fees = sorted(master_df["Fee"].unique().tolist())
 selected_fees = st.sidebar.multiselect(
     "Fee category",
