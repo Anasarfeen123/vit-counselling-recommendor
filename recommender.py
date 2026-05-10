@@ -1,47 +1,8 @@
-from load_data import master_df
+from load_data import cutoffs
 import statistics
-import math
 
 # =====================================================
-# BUILD CUTOFF DATABASE (PERCENTILE-BASED)
-# Replaces naive max() with 90th-percentile closing rank
-# so a single outlier doesn't inflate the cutoff.
-# We also store std_dev so the probability function can
-# penalise uncertain options properly.
-# =====================================================
-
-def build_cutoffs(df):
-    cutoffs = {}
-    for (campus, branch, fee), group in df.groupby(["Campus", "Branch", "Fee"]):
-        ranks = sorted(group["Rank"].tolist())
-        n = len(ranks)
-
-        # 90th-percentile closing rank (robust to outliers)
-        p90_idx = min(int(math.ceil(0.90 * n)) - 1, n - 1)
-        closing_rank = ranks[p90_idx]
-
-        # True maximum (for display purposes)
-        true_max = ranks[-1]
-
-        # Spread of observed ranks
-        std_dev = statistics.stdev(ranks) if n >= 2 else 0
-
-        cutoffs[(campus, branch, fee)] = {
-            "closing_rank": closing_rank,
-            "true_max": true_max,
-            "std_dev": std_dev,
-            "responses": n,
-            "min_rank": ranks[0],
-            "median_rank": statistics.median(ranks),
-        }
-    return cutoffs
-
-
-cutoffs = build_cutoffs(master_df)
-
-
-# =====================================================
-# CONFIDENCE
+# CONFIDENCE SCORE
 # =====================================================
 
 def get_confidence(responses):
@@ -67,99 +28,56 @@ def get_confidence_percentage(responses):
         return 60
     elif responses >= 3:
         return 40
-    return 20
+    else:
+        return 20
 
 
-# =====================================================
-# PROBABILITY (IMPROVED)
-# Uses:
-#   1. Rank buffer as fraction of closing rank (scale-invariant)
-#   2. Standard deviation penalty (high spread = more uncertainty)
-#   3. Small confidence penalty for thin data
-# =====================================================
-
-def calculate_probability(user_rank, closing_rank, responses, std_dev=0):
+def calculate_probability(user_rank, closing_rank, responses):
     """
-    Calculate probability of getting a seat.
-
-    Args:
-        user_rank:     Student's VITEEE rank
-        closing_rank:  90th-percentile closing rank for this option
-        responses:     Number of data points
-        std_dev:       Standard deviation of observed ranks
-
-    Returns:
-        Probability percentage (0-100)
+    Probability of admission based on rank buffer and data confidence.
+    Rank buffer is the primary signal; response count adjusts uncertainty only.
     """
     rank_buffer = closing_rank - user_rank
     buffer_ratio = rank_buffer / closing_rank if closing_rank else -1
 
-    # ── Base probability from rank buffer ──────────────────────
     if rank_buffer >= 0:
-        if rank_buffer >= 20000 or buffer_ratio >= 0.60:
-            base_prob = 92
-        elif rank_buffer >= 10000 or buffer_ratio >= 0.40:
-            base_prob = 85
-        elif rank_buffer >= 5000 or buffer_ratio >= 0.22:
-            base_prob = 76
-        elif rank_buffer >= 2000 or buffer_ratio >= 0.10:
-            base_prob = 64
-        elif rank_buffer >= 800 or buffer_ratio >= 0.04:
-            base_prob = 54
-        elif rank_buffer >= 200 or buffer_ratio >= 0.01:
-            base_prob = 44
+        if rank_buffer >= 25000 or buffer_ratio >= 0.65:
+            base_prob = 94
+        elif rank_buffer >= 10000 or buffer_ratio >= 0.45:
+            base_prob = 88
+        elif rank_buffer >= 5000 or buffer_ratio >= 0.25:
+            base_prob = 80
+        elif rank_buffer >= 2000 or buffer_ratio >= 0.12:
+            base_prob = 70
+        elif rank_buffer >= 500 or buffer_ratio >= 0.04:
+            base_prob = 58
         else:
-            base_prob = 38          # very slim positive buffer
+            base_prob = 46
     elif rank_buffer >= -500:
-        base_prob = 30
+        base_prob = 35
     elif rank_buffer >= -2000:
-        base_prob = 20
+        base_prob = 25
     elif rank_buffer >= -5000:
-        base_prob = 12
+        base_prob = 15
     else:
-        base_prob = 6
+        base_prob = 8
 
-    # ── Standard-deviation penalty ─────────────────────────────
-    # High spread means the cutoff swings a lot year-to-year.
-    # Normalise SD relative to closing rank so a 1000-rank SD on
-    # a 50k program is treated differently from the same SD on
-    # a 5k program.
-    if closing_rank > 0 and std_dev > 0:
-        cv = std_dev / closing_rank          # coefficient of variation
-        if cv >= 0.25:
-            sd_penalty = 14
-        elif cv >= 0.15:
-            sd_penalty = 9
-        elif cv >= 0.08:
-            sd_penalty = 5
-        elif cv >= 0.04:
-            sd_penalty = 2
-        else:
-            sd_penalty = 0
-        # Cap penalty for already-very-safe options
-        if rank_buffer >= 10000 or buffer_ratio >= 0.40:
-            sd_penalty = min(sd_penalty, 4)
-    else:
-        sd_penalty = 0
-
-    # ── Thin-data penalty ──────────────────────────────────────
     if responses >= 12:
-        data_penalty = 0
+        uncertainty_penalty = 0
     elif responses >= 6:
-        data_penalty = 2
+        uncertainty_penalty = 2
     elif responses >= 3:
-        data_penalty = 5
+        uncertainty_penalty = 3
     elif responses == 2:
-        data_penalty = 8
+        uncertainty_penalty = 5
     else:
-        data_penalty = 11
+        uncertainty_penalty = 7
 
-    # Large buffers stay safe regardless of sample size
-    if rank_buffer >= 8000 or buffer_ratio >= 0.35:
-        data_penalty = min(data_penalty, 3)
+    # Large buffer stays safe even with small sample
+    if rank_buffer >= 5000 or buffer_ratio >= 0.25:
+        uncertainty_penalty = min(uncertainty_penalty, 3)
 
-    probability = max(2, min(97, base_prob - sd_penalty - data_penalty))
-    return round(probability, 1)
+    return round(max(1, min(98, base_prob - uncertainty_penalty)), 1)
 
 
 # =====================================================
@@ -173,34 +91,135 @@ def get_chance_category(probability):
         return "Moderate"
     elif probability >= 15:
         return "Dream"
-    return "Very Unlikely"
+    else:
+        return "Very Unlikely"
 
 
 def get_chance_color(chance):
-    colors = {
+    return {
         "Safe": "#10b981",
         "Moderate": "#f59e0b",
         "Dream": "#ef4444",
         "Very Unlikely": "#6b7280",
-    }
-    return colors.get(chance, "#95a5a6")
+    }.get(chance, "#95a5a6")
 
 
 def get_emoji_for_probability(probability):
-    if probability >= 85:
-        return "✅"
-    elif probability >= 70:
-        return "👍"
-    elif probability >= 50:
-        return "⚡"
-    elif probability >= 25:
-        return "🔥"
-    return "💭"
+    if probability >= 85: return "✅"
+    elif probability >= 70: return "👍"
+    elif probability >= 50: return "⚡"
+    elif probability >= 25: return "🔥"
+    else: return "💭"
 
 
 # =====================================================
-# RECOMMENDATION SCORING
+# BRANCH PRIORITY
+# Reflects real-world preference and placement value:
+#   CSE Core > AIML > DS > Cybersecurity > Business Systems
+#   > Robotics > IoT > CPS > IT > ECE > ECM > others
+# Lower number = higher priority (better branch)
 # =====================================================
+
+BRANCH_PRIORITY_MAP = {
+    # ── CSE family ──────────────────────────────────
+    "cse core":             0,
+    "cse aiml":             1,
+    "cse ds":               2,
+    "cse cybersecurity":    3,
+    "cse business systems": 4,
+    "cse robotics":         5,
+    "cse iot":              6,
+    "cse cps":              7,
+
+    # ── IT ──────────────────────────────────────────
+    "it core":              8,
+
+    # ── ECE family ──────────────────────────────────
+    "ece core":             9,
+    "ecm":                  10,
+    "ecse":                 10,
+
+    # ── EEE ─────────────────────────────────────────
+    "electrical":           11,
+    "electrical vlsi":      11,
+
+    # ── Mechanical family ───────────────────────────
+    "mechatronics":         12,
+    "mechanical":           13,
+    "mechanical ev":        13,
+
+    # ── Others ──────────────────────────────────────
+    "civil":                14,
+    "chemical":             15,
+    "biotechnology":        16,
+}
+
+# How many score points a branch priority step is worth.
+# Keeps branch preference meaningful without completely overriding probability.
+BRANCH_SCORE_WEIGHT = 3   # points per priority step
+
+
+def get_branch_priority(branch):
+    """Return numeric priority (lower = better). Unknown branches go last."""
+    return BRANCH_PRIORITY_MAP.get(str(branch).lower(), 99)
+
+
+def get_branch_bonus(branch):
+    """
+    Score bonus based on branch desirability.
+    CSE Core gets the full 48 pts, each step down loses BRANCH_SCORE_WEIGHT.
+    """
+    priority = get_branch_priority(branch)
+    if priority == 99:
+        return -10   # unknown / niche branch
+    max_priority = max(BRANCH_PRIORITY_MAP.values())  # 16
+    return (max_priority - priority) * BRANCH_SCORE_WEIGHT
+
+
+# =====================================================
+# CAMPUS PRIORITY
+# Vellore and Chennai are Tier-0 (roughly equal).
+# AP and Bhopal are deprioritised.
+# =====================================================
+
+CAMPUS_TIERS = {
+    "Vellore":   0,
+    "Chennai":   0,
+    "Amaravati": 1,
+    "Ap":        1,
+    "Bhopal":    2,
+}
+
+CAMPUS_BONUSES = {
+    "Vellore":   6,
+    "Chennai":   5,
+    "Amaravati": -3,
+    "Ap":        -3,
+    "Bhopal":    -10,
+}
+
+
+def get_campus_tier(campus):
+    return CAMPUS_TIERS.get(campus, 9)
+
+
+def get_campus_priority(campus):
+    """Tiebreaker within same tier: Vellore slightly ahead of Chennai."""
+    return {"Vellore": 0, "Chennai": 1}.get(campus, 10)
+
+
+def get_campus_bonus(campus):
+    return CAMPUS_BONUSES.get(campus, -15)
+
+
+# =====================================================
+# FEE PRIORITY
+# Lower fee category = cheaper = better by default.
+# BUT: the scoring weight is kept small so a much
+# better branch can still outrank a lower-fee option.
+# =====================================================
+
+FEE_SCORE_WEIGHT = 2   # points per category step saved
 
 def get_fee_priority(fee):
     try:
@@ -209,47 +228,53 @@ def get_fee_priority(fee):
         return 99
 
 
-def get_campus_priority(campus):
-    # Keys must match normalize_campus() output — "Amaravati", not "Ap"
-    priorities = {"Vellore": 0, "Chennai": 1, "Amaravati": 10, "Bhopal": 20}
-    return priorities.get(campus, 99)
-
-
-def get_campus_tier(campus):
-    # Keys must match normalize_campus() output — "Amaravati", not "Ap"
-    tiers = {"Vellore": 0, "Chennai": 0, "Amaravati": 1, "Bhopal": 2}
-    return tiers.get(campus, 9)
-
-
-def get_campus_bonus(campus):
-    # Keys must match normalize_campus() output — "Amaravati", not "Ap"
-    bonuses = {"Vellore": 8, "Chennai": 7, "Amaravati": -4, "Bhopal": -12}
-    return bonuses.get(campus, -16)
-
-
-def get_branch_priority(branch):
-    branch_key = str(branch).lower()
-    if branch_key == "cse core":
+def get_fee_bonus(fee):
+    """
+    Cheap fee gives a small bonus.
+    Cat 1 → +8 pts, Cat 5 → 0 pts.
+    Deliberately smaller than branch bonus so
+    "Cat 3 Core" can still beat "Cat 1 IoT".
+    """
+    priority = get_fee_priority(fee)
+    if priority == 99:
         return 0
-    if "cse" in branch_key or branch_key in {"csbs"}:
-        return 1
-    if branch_key in {"it", "it core", "ece core", "ecm", "ecse"}:
-        return 2
-    return 3
+    max_fee = 5
+    return max(0, max_fee - priority) * FEE_SCORE_WEIGHT
 
+
+# =====================================================
+# RECOMMENDATION SCORE
+#
+# Formula (all additive):
+#   probability          (0–98,  primary driver)
+#   + branch_bonus       (0–48,  prestige/placement)
+#   + campus_bonus       (-15–6, campus quality)
+#   + fee_bonus          (0–8,   affordability nudge)
+#   + confidence_bonus   (0–7,   data quality nudge)
+#
+# Branch weight > fee weight means:
+#   CSE Core Cat-3 will usually beat CSE IoT Cat-1
+#   when probability is similar.
+# =====================================================
 
 def calculate_recommendation_score(probability, responses, fee, campus, branch):
-    fee_priority = get_fee_priority(fee)
-    campus_bonus = get_campus_bonus(campus)
-    branch_bonus = max(0, 4 - get_branch_priority(branch)) * 4
-    affordability_bonus = max(0, 6 - fee_priority) * 4
+    branch_bonus     = get_branch_bonus(branch)
+    campus_bonus     = get_campus_bonus(campus)
+    fee_bonus        = get_fee_bonus(fee)
     confidence_bonus = min(responses, 20) * 0.35
-    return round(probability + campus_bonus + branch_bonus + affordability_bonus + confidence_bonus, 2)
 
+    return round(
+        probability + branch_bonus + campus_bonus + fee_bonus + confidence_bonus,
+        2
+    )
+
+
+# =====================================================
+# CHANCE PRIORITY (for sort order)
+# =====================================================
 
 def get_chance_priority(chance):
-    priorities = {"Safe": 0, "Moderate": 1, "Dream": 2, "Very Unlikely": 3}
-    return priorities.get(chance, 9)
+    return {"Safe": 0, "Moderate": 1, "Dream": 2, "Very Unlikely": 3}.get(chance, 9)
 
 
 # =====================================================
@@ -257,81 +282,112 @@ def get_chance_priority(chance):
 # =====================================================
 
 def recommend(user_rank, sort_by="recommended"):
+    """
+    Generate ranked recommendations for a given VITEEE rank.
+
+    Default "recommended" sort:
+      1. Chance category (Safe → Moderate → Dream → Unlikely)
+      2. Campus tier
+      3. Branch priority  ← AIML before IoT, etc.
+      4. Fee priority     ← cheaper preferred when branch is equal
+      5. Campus tiebreaker (Vellore > Chennai within same tier)
+      6. Probability descending
+      7. Responses descending (more data = more reliable)
+      8. Recommendation score descending
+      9. Branch name (alphabetic stability)
+    """
     recommendations = []
 
     for key, data in cutoffs.items():
         campus, branch, fee = key
         closing_rank = data["closing_rank"]
-        responses = data["responses"]
-        std_dev = data["std_dev"]
-        true_max = data["true_max"]
+        responses    = data["responses"]
 
-        probability = calculate_probability(user_rank, closing_rank, responses, std_dev)
-        rank_difference = closing_rank - user_rank
-
-        chance = get_chance_category(probability)
-        confidence = get_confidence(responses)
-        confidence_pct = get_confidence_percentage(responses)
-        campus_tier = get_campus_tier(campus)
-        campus_priority = get_campus_priority(campus)
-        branch_priority = get_branch_priority(branch)
+        probability         = calculate_probability(user_rank, closing_rank, responses)
+        rank_difference     = closing_rank - user_rank
+        chance              = get_chance_category(probability)
+        confidence          = get_confidence(responses)
+        confidence_pct      = get_confidence_percentage(responses)
+        campus_tier         = get_campus_tier(campus)
+        campus_priority     = get_campus_priority(campus)
+        branch_priority     = get_branch_priority(branch)
         recommendation_score = calculate_recommendation_score(
             probability, responses, fee, campus, branch
         )
 
         recommendations.append({
-            "campus": campus,
-            "branch": branch,
-            "fee": fee,
-            "closing_rank": closing_rank,
-            "true_max": true_max,
-            "std_dev": round(std_dev),
-            "rank_difference": rank_difference,
-            "responses": responses,
-            "confidence": confidence,
-            "confidence_pct": confidence_pct,
-            "chance": chance,
-            "probability": probability,
+            "campus":               campus,
+            "branch":               branch,
+            "fee":                  fee,
+            "closing_rank":         closing_rank,
+            "rank_difference":      rank_difference,
+            "responses":            responses,
+            "confidence":           confidence,
+            "confidence_pct":       confidence_pct,
+            "chance":               chance,
+            "probability":          probability,
             "recommendation_score": recommendation_score,
-            "fee_priority": get_fee_priority(fee),
-            "campus_tier": campus_tier,
-            "campus_priority": campus_priority,
-            "branch_priority": branch_priority,
-            "emoji": get_emoji_for_probability(probability),
-            "color": get_chance_color(chance),
+            "fee_priority":         get_fee_priority(fee),
+            "campus_tier":          campus_tier,
+            "campus_priority":      campus_priority,
+            "branch_priority":      branch_priority,
+            "emoji":                get_emoji_for_probability(probability),
+            "color":                get_chance_color(chance),
         })
+
+    # ── Sort keys ──────────────────────────────────────────────────────────
 
     sort_keys = {
         "recommended": lambda x: (
-            get_chance_priority(x["chance"]),
+            get_chance_priority(x["chance"]),   # Safe first
+            x["campus_tier"],                   # Vellore/Chennai before AP/Bhopal
+            x["branch_priority"],               # CSE Core > AIML > IoT etc.
+            x["fee_priority"],                  # cheaper when branch is equal
+            x["campus_priority"],               # Vellore > Chennai tiebreak
+            -x["probability"],                  # higher prob first
+            -x["responses"],                    # more data first
+            -x["recommendation_score"],
+            x["branch"],                        # alphabetic stability
+        ),
+        "probability": lambda x: (
+            -x["probability"],
+            x["campus_tier"],
+            x["branch_priority"],
+            x["fee_priority"],
+            x["campus_priority"],
+            -x["responses"],
+        ),
+        "confidence": lambda x: (
+            -x["confidence_pct"],
             x["campus_tier"],
             x["branch_priority"],
             x["fee_priority"],
             x["campus_priority"],
             -x["probability"],
-            -x["responses"],
-            -x["recommendation_score"],
-            x["branch"],
-        ),
-        "probability": lambda x: (
-            -x["probability"], x["campus_tier"], x["branch_priority"],
-            x["fee_priority"], x["campus_priority"], -x["responses"]
-        ),
-        "confidence": lambda x: (
-            -x["confidence_pct"], x["campus_tier"], x["branch_priority"],
-            x["fee_priority"], x["campus_priority"], -x["probability"]
         ),
         "responses": lambda x: (
-            -x["responses"], x["campus_tier"], x["branch_priority"],
-            x["fee_priority"], x["campus_priority"], -x["probability"]
+            -x["responses"],
+            x["campus_tier"],
+            x["branch_priority"],
+            x["fee_priority"],
+            x["campus_priority"],
+            -x["probability"],
         ),
         "closing_rank": lambda x: (
-            -x["closing_rank"], x["campus_tier"], x["branch_priority"],
-            x["fee_priority"], x["campus_priority"], -x["probability"]
+            -x["closing_rank"],
+            x["campus_tier"],
+            x["branch_priority"],
+            x["fee_priority"],
+            x["campus_priority"],
+            -x["probability"],
         ),
         "fee": lambda x: (
-            x["fee_priority"], x["campus_tier"], x["branch_priority"],
-            x["campus_priority"], -x["probability"], -x["responses"]
+            x["fee_priority"],          # cheapest first
+            x["campus_tier"],
+            x["branch_priority"],       # within same fee, better branch first
+            x["campus_priority"],
+            -x["probability"],
+            -x["responses"],
         ),
     }
 
@@ -339,23 +395,27 @@ def recommend(user_rank, sort_by="recommended"):
     return recommendations
 
 
+# =====================================================
+# HELPERS
+# =====================================================
+
 def get_recommendations_by_category(recommendations):
     return {
-        "Safe": [r for r in recommendations if r["chance"] == "Safe"],
-        "Moderate": [r for r in recommendations if r["chance"] == "Moderate"],
-        "Dream": [r for r in recommendations if r["chance"] == "Dream"],
+        "Safe":          [r for r in recommendations if r["chance"] == "Safe"],
+        "Moderate":      [r for r in recommendations if r["chance"] == "Moderate"],
+        "Dream":         [r for r in recommendations if r["chance"] == "Dream"],
         "Very Unlikely": [r for r in recommendations if r["chance"] == "Very Unlikely"],
     }
 
 
 def get_rank_statistics(user_rank):
     all_closing_ranks = [data["closing_rank"] for data in cutoffs.values()]
-    better_ranks = len([r for r in all_closing_ranks if r > user_rank])
-    worse_ranks = len([r for r in all_closing_ranks if r < user_rank])
-    total_ranks = len(all_closing_ranks)
+    better = len([r for r in all_closing_ranks if r > user_rank])
+    worse  = len([r for r in all_closing_ranks if r < user_rank])
+    total  = len(all_closing_ranks)
     return {
-        "total_options": total_ranks,
-        "better_options": better_ranks,
-        "worse_options": worse_ranks,
-        "percentile": round((worse_ranks / total_ranks * 100) if total_ranks > 0 else 0, 1),
+        "total_options":  total,
+        "better_options": better,
+        "worse_options":  worse,
+        "percentile":     round((worse / total * 100) if total > 0 else 0, 1),
     }
