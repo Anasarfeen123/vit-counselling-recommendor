@@ -20,456 +20,118 @@ st.set_page_config(
 )
 
 # =====================================================
-# CUSTOM CSS
+# THEME
 # =====================================================
 
 theme_mode = st.sidebar.segmented_control(
-    "Theme",
-    ["Light", "Dark"],
-    default="Light",
-    key="theme_mode",
+    "Theme", ["Light", "Dark"], default="Light", key="theme_mode",
 )
 
 THEMES = {
     "Light": {
-        "bg": "#f3f6fb",
+        "bg": "#f0f4fa",
         "surface": "#ffffff",
         "input": "#ffffff",
-        "text": "#111827",
-        "muted": "#4b5563",
-        "soft": "#6b7280",
-        "border": "#d9e2ef",
+        "text": "#0f172a",
+        "muted": "#475569",
+        "soft": "#64748b",
+        "border": "#dde5f0",
         "primary": "#4f46e5",
         "primary_dark": "#3730a3",
-        "header": "rgba(243, 246, 251, 0.96)",
-        "shadow": "0 10px 28px rgba(15, 23, 42, 0.05)",
-        "info_bg": "#e8f1ff",
-        "info_border": "#93c5fd",
-        "info_text": "#173b8f",
+        "header": "rgba(240,244,250,0.97)",
+        "shadow": "0 8px 30px rgba(15,23,42,0.07)",
+        "info_bg": "#eff6ff",
+        "info_border": "#bfdbfe",
+        "info_text": "#1e40af",
         "tag_bg": "#eef2ff",
         "tag_text": "#312e81",
         "grid": "#e2e8f0",
         "axis": "#cbd5e1",
-        "legend_bg": "rgba(255,255,255,0.86)",
-        "hover_bg": "#111827",
+        "legend_bg": "rgba(255,255,255,0.9)",
+        "hover_bg": "#0f172a",
         "hover_text": "#ffffff",
-        "bar_bg": "#e5e7eb",
+        "bar_bg": "#e2e8f0",
         "chip_bg": "#f8fafc",
-        "chip_good_bg": "#ecfdf5",
-        "chip_good_text": "#047857",
-        "chip_warn_bg": "#fffbeb",
-        "chip_warn_text": "#b45309",
+        "chip_good_bg": "#f0fdf4",
+        "chip_good_text": "#15803d",
+        "chip_warn_bg": "#fefce8",
+        "chip_warn_text": "#a16207",
         "chip_risk_bg": "#fef2f2",
         "chip_risk_text": "#dc2626",
-        "safe_color": "#059669",
+        "safe_color": "#16a34a",
         "moderate_color": "#d97706",
         "dream_color": "#dc2626",
-        "badge_safe_bg": "#d1fae5",
-        "badge_safe_text": "#065f46",
-        "badge_moderate_bg": "#fef3c7",
-        "badge_moderate_text": "#78350f",
+        "badge_safe_bg": "#dcfce7",
+        "badge_safe_text": "#14532d",
+        "badge_moderate_bg": "#fef9c3",
+        "badge_moderate_text": "#713f12",
         "badge_dream_bg": "#fee2e2",
         "badge_dream_text": "#7f1d1d",
         "safe_bg": "#f0fdf4",
-        "safe_border": "#bbf7d0",
-        "safe_text": "#166534",
-        "moderate_bg": "#fffbeb",
-        "moderate_border": "#fde68a",
-        "moderate_text": "#92400e",
-        "dream_bg": "#fef2f2",
-        "dream_border": "#fecaca",
-        "dream_text": "#7f1d1d",
+        "safe_border": "#86efac",
+        "safe_text": "#15803d",
+        "moderate_bg": "#fefce8",
+        "moderate_border": "#fde047",
+        "moderate_text": "#854d0e",
+        "dream_bg": "#fff1f2",
+        "dream_border": "#fda4af",
+        "dream_text": "#9f1239",
     },
     "Dark": {
         "bg": "#0b1120",
         "surface": "#172033",
-        "input": "#243047",
-        "text": "#f8fafc",
-        "muted": "#d6e0f0",
-        "soft": "#a9b8ce",
-        "border": "#465875",
-        "primary": "#a5b4fc",
-        "primary_dark": "#c4b5fd",
-        "header": "rgba(11, 17, 32, 0.96)",
-        "shadow": "0 18px 40px rgba(0, 0, 0, 0.28)",
-        "info_bg": "#1e3a8a",
-        "info_border": "#60a5fa",
-        "info_text": "#eff6ff",
-        "tag_bg": "#3730a3",
-        "tag_text": "#ffffff",
-        "grid": "#3c4d68",
-        "axis": "#64748b",
-        "legend_bg": "rgba(23,32,51,0.94)",
-        "hover_bg": "#f8fafc",
+        "input": "#1e2d45",
+        "text": "#f1f5f9",
+        "muted": "#94a3b8",
+        "soft": "#64748b",
+        "border": "#2d4060",
+        "primary": "#818cf8",
+        "primary_dark": "#a5b4fc",
+        "header": "rgba(11,17,32,0.97)",
+        "shadow": "0 8px 30px rgba(0,0,0,0.35)",
+        "info_bg": "#1e3a5f",
+        "info_border": "#3b82f6",
+        "info_text": "#dbeafe",
+        "tag_bg": "#312e81",
+        "tag_text": "#c7d2fe",
+        "grid": "#1e3048",
+        "axis": "#334155",
+        "legend_bg": "rgba(23,32,51,0.95)",
+        "hover_bg": "#f1f5f9",
         "hover_text": "#0f172a",
-        "bar_bg": "#3f506a",
-        "chip_bg": "#223049",
-        "chip_good_bg": "#073b2a",
-        "chip_good_text": "#6ee7b7",
-        "chip_warn_bg": "#4a2f0a",
-        "chip_warn_text": "#fcd34d",
-        "chip_risk_bg": "#4a1515",
-        "chip_risk_text": "#fca5a5",
-        "safe_color": "#34d399",
+        "bar_bg": "#1e3048",
+        "chip_bg": "#1a2a40",
+        "chip_good_bg": "#052e16",
+        "chip_good_text": "#4ade80",
+        "chip_warn_bg": "#3b1e06",
+        "chip_warn_text": "#fbbf24",
+        "chip_risk_bg": "#3b0a0a",
+        "chip_risk_text": "#f87171",
+        "safe_color": "#4ade80",
         "moderate_color": "#fbbf24",
-        "dream_color": "#fb7185",
-        "badge_safe_bg": "#065f46",
-        "badge_safe_text": "#d1fae5",
-        "badge_moderate_bg": "#92400e",
-        "badge_moderate_text": "#fef3c7",
-        "badge_dream_bg": "#991b1b",
-        "badge_dream_text": "#fee2e2",
-        "safe_bg": "#0b3b2a",
-        "safe_border": "#10b981",
-        "safe_text": "#d1fae5",
-        "moderate_bg": "#4a2f0a",
-        "moderate_border": "#f59e0b",
-        "moderate_text": "#fef3c7",
-        "dream_bg": "#4a1515",
-        "dream_border": "#fb7185",
-        "dream_text": "#ffe4e6",
+        "dream_color": "#f87171",
+        "badge_safe_bg": "#14532d",
+        "badge_safe_text": "#bbf7d0",
+        "badge_moderate_bg": "#713f12",
+        "badge_moderate_text": "#fef9c3",
+        "badge_dream_bg": "#7f1d1d",
+        "badge_dream_text": "#fecaca",
+        "safe_bg": "#052e16",
+        "safe_border": "#16a34a",
+        "safe_text": "#bbf7d0",
+        "moderate_bg": "#3b1e06",
+        "moderate_border": "#d97706",
+        "moderate_text": "#fef9c3",
+        "dream_bg": "#3b0a0a",
+        "dream_border": "#dc2626",
+        "dream_text": "#fecaca",
     },
 }
 theme = THEMES[theme_mode]
 
-st.markdown("""
-<style>
-    /* Reset & base */
-    :root {
-        --vit-bg: #f3f6fb;
-        --vit-surface: #ffffff;
-        --vit-text: #111827;
-        --vit-muted: #4b5563;
-        --vit-soft: #6b7280;
-        --vit-border: #d9e2ef;
-        --vit-primary: #4f46e5;
-        --vit-primary-dark: #3730a3;
-    }
-    .stApp { background: var(--vit-bg); color: var(--vit-text); }
-    [data-testid="stMainBlockContainer"] {
-        background: var(--vit-bg);
-        padding-top: 3rem;
-        max-width: 1540px;
-    }
-    [data-testid="stHeader"] { background: rgba(243, 246, 251, 0.96); }
-    [data-testid="stToolbar"] { color: var(--vit-text); }
-    [data-testid="stSidebar"] {
-        background: var(--vit-surface) !important;
-        border-right: 1px solid var(--vit-border);
-    }
-    [data-testid="stSidebar"] > div:first-child { padding: 1.25rem 1rem; }
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span {
-        color: var(--vit-text) !important;
-    }
-    [data-testid="stSidebar"] small,
-    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {
-        color: var(--vit-muted) !important;
-    }
-    [data-baseweb="input"],
-    [data-baseweb="select"] > div,
-    [data-baseweb="tag"] {
-        background-color: #ffffff !important;
-        border-color: #cbd5e1 !important;
-        color: var(--vit-text) !important;
-    }
-    [data-baseweb="input"] input,
-    [data-baseweb="select"] input,
-    [data-baseweb="select"] span,
-    [role="listbox"] li {
-        color: var(--vit-text) !important;
-    }
-    /* Multiselect tag improvements */
-    [data-baseweb="tag"] {
-        background-color: #eef2ff !important;
-        color: #312e81 !important;
-        padding: 4px 8px !important;
-        margin: 2px !important;
-        border-radius: 4px !important;
-        white-space: normal !important;
-        word-break: break-word !important;
-        max-width: 100% !important;
-    }
-    [data-baseweb="tag"] span { 
-        color: #312e81 !important;
-        word-break: break-word !important;
-        overflow: visible !important;
-    }
-    /* Fix multiselect container height */
-    [data-baseweb="select"].stMultiSelect [data-baseweb="base-select"],
-    [data-baseweb="select"] {
-        min-height: auto !important;
-        flex-wrap: wrap !important;
-    }
-    [data-testid="stMultiSelect"] {
-        min-height: auto !important;
-    }
-    [data-testid="stSidebar"] button[kind="primary"] {
-        background: var(--vit-primary) !important;
-        border-color: var(--vit-primary) !important;
-        color: #ffffff !important;
-        font-weight: 700;
-    }
-    [data-testid="stSidebar"] button[kind="primary"] span {
-        color: #ffffff !important;
-    }
-
-    /* Page header */
-    .vit-header {
-        display: flex;
-        align-items: center;
-        gap: 14px;
-        padding: 1.35rem 1.5rem;
-        background: var(--vit-surface);
-        border: 1px solid var(--vit-border);
-        border-radius: 8px;
-        margin-bottom: 1.25rem;
-        box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
-    }
-    .vit-header-icon {
-        width: 48px; height: 48px;
-        background: var(--vit-primary);
-        border-radius: 8px;
-        display: flex; align-items: center; justify-content: center;
-        font-size: 1.5rem; flex-shrink: 0;
-    }
-    .vit-header h1 { margin: 0; font-size: 1.55rem; font-weight: 750; color: var(--vit-text); }
-    .vit-header p  { margin: 0.2rem 0 0; font-size: 0.9rem; color: var(--vit-muted); }
-
-    /* Info strip */
-    .info-strip {
-        background: #e8f1ff;
-        border: 1px solid #93c5fd;
-        border-radius: 8px;
-        padding: 0.75rem 1rem;
-        font-size: 0.9rem;
-        color: #173b8f;
-        margin-bottom: 1.25rem;
-    }
-
-    /* Section heading */
-    .section-heading {
-        font-size: 0.82rem;
-        font-weight: 750;
-        text-transform: uppercase;
-        letter-spacing: 0.05em;
-        color: #334155;
-        margin: 1.5rem 0 0.6rem;
-    }
-
-    /* Result cards */
-    .result-row {
-        background: var(--vit-surface);
-        border: 1px solid var(--vit-border);
-        border-left: 4px solid var(--vit-border);
-        border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 0.75rem;
-        display: grid;
-        grid-template-columns: minmax(0, 1fr) 156px;
-        gap: 1rem;
-        box-shadow: 0 10px 24px rgba(15, 23, 42, 0.04);
-    }
-    .result-row.safe     { border-left-color: #059669; }
-    .result-row.moderate { border-left-color: #d97706; }
-    .result-row.dream    { border-left-color: #dc2626; }
-    .result-row.unlikely { border-left-color: #6b7280; }
-
-    .result-topline {
-        display: flex;
-        align-items: center;
-        gap: 0.55rem;
-        flex-wrap: wrap;
-        margin-bottom: 0.55rem;
-    }
-    .result-name { font-size: 1.03rem; font-weight: 800; color: var(--vit-text); }
-    .result-meta { font-size: 0.82rem; color: var(--vit-muted); margin-top: 4px; }
-    .result-meta b { color: var(--vit-text); }
-    .option-chip-row {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.45rem;
-        margin: 0.45rem 0 0.55rem;
-    }
-    .option-chip {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.25rem;
-        padding: 0.28rem 0.52rem;
-        border: 1px solid var(--vit-border);
-        border-radius: 6px;
-        color: var(--vit-muted);
-        background: rgba(148, 163, 184, 0.08);
-        font-size: 0.76rem;
-        font-weight: 650;
-        line-height: 1.15;
-    }
-    .option-chip strong { color: var(--vit-text); font-weight: 800; }
-    .option-chip.good {
-        color: #047857;
-        border-color: rgba(5, 150, 105, 0.35);
-        background: rgba(16, 185, 129, 0.10);
-    }
-    .option-chip.warn {
-        color: #b45309;
-        border-color: rgba(217, 119, 6, 0.35);
-        background: rgba(245, 158, 11, 0.12);
-    }
-    .option-chip.risk {
-        color: #dc2626;
-        border-color: rgba(220, 38, 38, 0.35);
-        background: rgba(239, 68, 68, 0.10);
-    }
-    .result-note {
-        color: var(--vit-muted);
-        font-size: 0.8rem;
-        line-height: 1.35;
-    }
-    .result-note strong { color: var(--vit-text); }
-    .prob-panel {
-        border-left: 1px solid var(--vit-border);
-        padding-left: 1rem;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-        justify-content: center;
-        min-width: 0;
-    }
-
-    .prob-number { font-size: 1.5rem; font-weight: 700; line-height: 1; }
-    .prob-number.safe     { color: #059669; }
-    .prob-number.moderate { color: #d97706; }
-    .prob-number.dream    { color: #dc2626; }
-    .prob-number.unlikely { color: #6b7280; }
-    .prob-label { font-size: 0.76rem; color: var(--vit-muted); margin-top: 4px; text-align: right; }
-    .score-label { font-size: 0.68rem; color: var(--vit-soft); margin-top: 5px; text-align: right; }
-
-    .prob-bar-bg {
-        height: 5px; background: #e5e7eb;
-        border-radius: 2px; overflow: hidden;
-        margin-top: 8px; min-width: 108px;
-    }
-    .prob-bar-fill { height: 100%; border-radius: 2px; }
-
-    /* ── Badge ── */
-    .badge {
-        display: inline-block;
-        font-size: 0.68rem; font-weight: 500;
-        padding: 2px 8px; border-radius: 99px;
-        margin-left: 6px; vertical-align: middle;
-    }
-    .badge-safe     { background: #d1fae5; color: #065f46; }
-    .badge-moderate { background: #fef3c7; color: #78350f; }
-    .badge-dream    { background: #fee2e2; color: #7f1d1d; }
-    .badge-unlikely { background: #e5e7eb; color: #374151; }
-
-    /* Metric cards */
-    .metric-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 0.75rem;
-        margin-bottom: 1.25rem;
-    }
-    .metric-card {
-        background: var(--vit-surface);
-        border: 1px solid var(--vit-border);
-        border-radius: 8px;
-        padding: 1rem 1.25rem;
-        min-height: 112px;
-    }
-    .metric-card-label { font-size: 0.74rem; color: #475569; text-transform: uppercase; letter-spacing: 0.04em; font-weight: 750; }
-    .metric-card-value { font-size: 1.75rem; font-weight: 800; color: var(--vit-text); margin: 5px 0 2px; }
-    .metric-card-sub   { font-size: 0.8rem; color: var(--vit-muted); }
-    .metric-card-sub.green { color: #059669; }
-
-    /* Context banner */
-    .context-banner {
-        border: 1px solid var(--vit-border);
-        border-radius: 8px;
-        padding: 0.7rem 1rem;
-        font-size: 0.88rem;
-        margin-bottom: 0.6rem;
-        font-weight: 600;
-    }
-    .context-banner.safe     { background: #f0fdf4; border-color: #bbf7d0; color: #166534; }
-    .context-banner.moderate { background: #fffbeb; border-color: #fde68a; color: #92400e; }
-    .context-banner.dream    { background: #fef2f2; border-color: #fecaca; color: #7f1d1d; }
-
-    /* Sidebar rank display */
-    .rank-big {
-        font-size: 2rem; font-weight: 800; color: var(--vit-primary);
-        line-height: 1; margin: 6px 0 2px;
-    }
-
-    /* Sidebar multiselect improvements */
-    [data-testid="stSidebar"] [data-baseweb="tag"] {
-        padding: 5px 10px !important;
-        margin: 3px 3px !important;
-        font-size: 0.9rem !important;
-        white-space: normal !important;
-        overflow: visible !important;
-    }
-    [data-testid="stSidebar"] [data-baseweb="select"] {
-        flex-wrap: wrap !important;
-    }
-    [data-testid="stSidebar"] [data-baseweb="base-select"] {
-        min-height: auto !important;
-    }
-
-    /* Streamlit overrides */
-    h1, h2, h3, h4, h5, h6, p, label, span, div { color: inherit; }
-    div[data-testid="stMetric"] {
-        background: var(--vit-surface);
-        border: 1px solid var(--vit-border);
-        border-radius: 8px;
-        padding: 0.9rem 1rem;
-        min-height: 98px;
-    }
-    div[data-testid="stMetric"] label,
-    div[data-testid="stMetric"] [data-testid="stMetricLabel"] {
-        color: #475569 !important;
-        font-size: 0.8rem !important;
-        font-weight: 750 !important;
-    }
-    div[data-testid="stMetric"] [data-testid="stMetricValue"] {
-        color: var(--vit-text) !important;
-        font-size: 1.65rem !important;
-        font-weight: 800 !important;
-    }
-    div[data-testid="stTabs"] [data-baseweb="tab-list"] { gap: 4px; }
-    div[data-testid="stTabs"] [data-baseweb="tab"] {
-        font-size: 0.9rem;
-        padding: 8px 16px;
-        border-radius: 6px;
-        color: var(--vit-muted);
-        font-weight: 650;
-    }
-    div[data-testid="stTabs"] [aria-selected="true"] { color: var(--vit-primary-dark) !important; }
-    div[data-testid="stDataFrame"] { border: 1px solid var(--vit-border); border-radius: 8px; overflow: hidden; }
-    .stAlert {
-        border-radius: 8px;
-        border: 1px solid #bfdbfe;
-    }
-
-    @media (max-width: 900px) {
-        [data-testid="stMainBlockContainer"] { padding: 1.25rem 1rem; }
-        .metric-grid { grid-template-columns: repeat(2, 1fr); }
-        .result-row { grid-template-columns: 1fr; }
-        .prob-panel {
-            align-items: flex-start;
-            border-left: 0;
-            border-top: 1px solid var(--vit-border);
-            padding-left: 0;
-            padding-top: 0.85rem;
-        }
-        .prob-label,
-        .score-label { text-align: left; }
-        .prob-bar-bg { width: 100%; }
-    }
-</style>
-""", unsafe_allow_html=True)
+# =====================================================
+# CSS
+# =====================================================
 
 st.markdown(f"""
 <style>
@@ -506,251 +168,398 @@ st.markdown(f"""
         --vit-badge-moderate-text: {theme["badge_moderate_text"]};
         --vit-badge-dream-bg: {theme["badge_dream_bg"]};
         --vit-badge-dream-text: {theme["badge_dream_text"]};
+        --safe-bg: {theme["safe_bg"]};
+        --safe-border: {theme["safe_border"]};
+        --safe-text: {theme["safe_text"]};
+        --moderate-bg: {theme["moderate_bg"]};
+        --moderate-border: {theme["moderate_border"]};
+        --moderate-text: {theme["moderate_text"]};
+        --dream-bg: {theme["dream_bg"]};
+        --dream-border: {theme["dream_border"]};
+        --dream-text: {theme["dream_text"]};
     }}
-    .stApp,
-    [data-testid="stMainBlockContainer"] {{
+
+    /* ── App shell ── */
+    .stApp, [data-testid="stMainBlockContainer"] {{
         background: var(--vit-bg) !important;
         color: var(--vit-text) !important;
     }}
+    [data-testid="stMainBlockContainer"] {{
+        padding-top: 2.5rem;
+        max-width: 1560px;
+    }}
     [data-testid="stHeader"] {{ background: {theme["header"]} !important; }}
-    [data-testid="stSidebar"],
-    .vit-header,
-    .result-row,
-    .metric-card,
-    div[data-testid="stMetric"] {{
+
+    /* ── Sidebar ── */
+    [data-testid="stSidebar"] {{
         background: var(--vit-surface) !important;
-        border-color: var(--vit-border) !important;
+        border-right: 1px solid var(--vit-border);
     }}
-    .vit-header {{ box-shadow: var(--vit-shadow) !important; }}
-    .vit-header h1,
-    .result-name,
-    .metric-card-value,
-    .result-meta b,
-    .option-chip strong,
-    .result-note strong,
-    div[data-testid="stMetric"] [data-testid="stMetricValue"] {{
-        color: var(--vit-text) !important;
-    }}
-    .vit-header p,
-    .result-meta,
-    .result-note,
-    .prob-label,
-    .metric-card-sub,
+    [data-testid="stSidebar"] > div:first-child {{ padding: 1.25rem 1rem; }}
+    [data-testid="stSidebar"] h3,
+    [data-testid="stSidebar"] label,
+    [data-testid="stSidebar"] p,
+    [data-testid="stSidebar"] span {{ color: var(--vit-text) !important; }}
     [data-testid="stSidebar"] small,
     [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] p {{
         color: var(--vit-muted) !important;
     }}
-    .section-heading,
-    .metric-card-label,
-    div[data-testid="stMetric"] label,
-    div[data-testid="stMetric"] [data-testid="stMetricLabel"] {{
-        color: var(--vit-soft) !important;
+    [data-testid="stSidebar"] button[kind="primary"] {{
+        background: var(--vit-primary) !important;
+        border-color: var(--vit-primary) !important;
+        color: #ffffff !important;
+        font-weight: 700;
     }}
-    .info-strip {{
-        background: var(--vit-info-bg) !important;
-        border-color: var(--vit-info-border) !important;
-        color: var(--vit-info-text) !important;
-    }}
+    [data-testid="stSidebar"] button[kind="primary"] span {{ color: #ffffff !important; }}
+
+    /* ── Form controls ── */
     [data-baseweb="input"],
     [data-baseweb="select"] > div,
-    [data-baseweb="textarea"],
-    [data-testid="stNumberInput"] div,
-    [data-testid="stSelectbox"] div,
-    [data-testid="stMultiSelect"] div {{
+    [data-baseweb="tag"],
+    [data-baseweb="textarea"] {{
         background-color: var(--vit-input) !important;
         border-color: var(--vit-border) !important;
         color: var(--vit-text) !important;
     }}
     [data-baseweb="input"] input,
-    [data-baseweb="input"] div,
-    [data-baseweb="textarea"] textarea,
     [data-baseweb="select"] input,
-    [data-baseweb="select"] div,
     [data-baseweb="select"] span,
-    [data-baseweb="select"] svg,
-    [data-testid="stNumberInput"] input,
-    [data-testid="stNumberInput"] button,
-    [data-testid="stNumberInput"] button svg,
-    [data-testid="stSelectbox"] input,
-    [data-testid="stSelectbox"] div,
-    [data-testid="stSelectbox"] span,
-    [data-testid="stMultiSelect"] input,
-    [data-testid="stMultiSelect"] div,
-    [data-testid="stMultiSelect"] span,
-    [data-testid="stSlider"] div,
-    [data-testid="stSlider"] span,
     [role="listbox"] li,
-    [data-testid="stSidebar"] h3,
-    [data-testid="stSidebar"] label,
-    [data-testid="stSidebar"] p,
-    [data-testid="stSidebar"] span {{
-        color: var(--vit-text) !important;
-    }}
-    input::placeholder,
-    textarea::placeholder,
-    [data-baseweb="input"] input::placeholder,
-    [data-baseweb="select"] input::placeholder {{
-        color: var(--vit-soft) !important;
-        opacity: 1 !important;
-    }}
+    [data-testid="stNumberInput"] input,
+    [data-testid="stSelectbox"] span {{ color: var(--vit-text) !important; }}
     [data-testid="stNumberInput"] button {{
         background: var(--vit-input) !important;
         border-color: var(--vit-border) !important;
-    }}
-    [data-baseweb="tag"] {{
-        background-color: var(--vit-tag-bg) !important;
-        border-color: var(--vit-border) !important;
-        color: var(--vit-tag-text) !important;
-        box-shadow: inset 0 0 0 1px var(--vit-border) !important;
-    }}
-    [data-baseweb="tag"],
-    [data-baseweb="tag"] *,
-    [data-baseweb="tag"] span,
-    [data-baseweb="tag"] svg,
-    [data-baseweb="tag"] button,
-    [data-testid="stMultiSelect"] [data-baseweb="tag"],
-    [data-testid="stMultiSelect"] [data-baseweb="tag"] * {{
-        color: var(--vit-tag-text) !important;
-        fill: var(--vit-tag-text) !important;
-    }}
-    [data-testid="stMultiSelect"] [aria-label="Clear all"],
-    [data-testid="stMultiSelect"] [aria-label="Open"],
-    [data-testid="stSelectbox"] [aria-label="Open"] {{
         color: var(--vit-text) !important;
-        fill: var(--vit-text) !important;
     }}
     [role="listbox"] {{
         background: var(--vit-surface) !important;
         border-color: var(--vit-border) !important;
     }}
-    [data-testid="stSegmentedControl"] label,
-    [data-testid="stSegmentedControl"] label div,
-    [data-testid="stSegmentedControl"] label span {{
-        color: var(--vit-text) !important;
+
+    /* ── Multiselect tags ── */
+    [data-baseweb="tag"] {{
+        background-color: var(--vit-tag-bg) !important;
+        color: var(--vit-tag-text) !important;
+        padding: 5px 10px !important;
+        margin: 3px !important;
+        border-radius: 5px !important;
+        white-space: normal !important;
+        word-break: break-word !important;
+        max-width: 100% !important;
+        font-size: 0.82rem !important;
+    }}
+    [data-baseweb="tag"] span,
+    [data-baseweb="tag"] * {{ color: var(--vit-tag-text) !important; fill: var(--vit-tag-text) !important; }}
+
+    /* ── Page header ── */
+    .vit-header {{
+        display: flex;
+        align-items: center;
+        gap: 16px;
+        padding: 1.5rem 1.75rem;
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-radius: 12px;
+        margin-bottom: 1.25rem;
+        box-shadow: var(--vit-shadow);
+    }}
+    .vit-header-icon {{
+        width: 54px; height: 54px;
+        background: var(--vit-primary);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.65rem; flex-shrink: 0;
+    }}
+    .vit-header h1 {{ margin: 0; font-size: 1.65rem; font-weight: 800; color: var(--vit-text); }}
+    .vit-header p  {{ margin: 0.25rem 0 0; font-size: 0.95rem; color: var(--vit-muted); }}
+
+    /* ── Info strip ── */
+    .info-strip {{
+        background: var(--vit-info-bg);
+        border: 1px solid var(--vit-info-border);
+        border-radius: 10px;
+        padding: 0.85rem 1.1rem;
+        font-size: 0.93rem;
+        color: var(--vit-info-text);
+        margin-bottom: 1.5rem;
+    }}
+
+    /* ── Section heading ── */
+    .section-heading {{
+        font-size: 0.85rem;
+        font-weight: 800;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--vit-soft);
+        margin: 1.75rem 0 0.75rem;
+    }}
+
+    /* ── Result card ── */
+    .result-row {{
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-left: 5px solid var(--vit-border);
+        border-radius: 10px;
+        padding: 1.35rem 1.5rem;
+        margin-bottom: 1rem;
+        display: grid;
+        grid-template-columns: minmax(0, 1fr) 180px;
+        gap: 1.25rem;
+        box-shadow: var(--vit-shadow);
+        transition: box-shadow 0.15s;
+    }}
+    .result-row:hover {{ box-shadow: 0 12px 36px rgba(15,23,42,0.10); }}
+    .result-row.safe     {{ border-left-color: var(--vit-safe-color); }}
+    .result-row.moderate {{ border-left-color: var(--vit-moderate-color); }}
+    .result-row.dream    {{ border-left-color: var(--vit-dream-color); }}
+    .result-row.unlikely {{ border-left-color: var(--vit-soft); }}
+
+    /* ── Card header ── */
+    .result-topline {{
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        flex-wrap: wrap;
+        margin-bottom: 0.9rem;
+    }}
+    .result-branch {{
+        font-size: 1.2rem;
+        font-weight: 800;
+        color: var(--vit-text);
+        line-height: 1.2;
+    }}
+
+    /* ── Chip row ── */
+    .chip-row {{
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.55rem;
+        margin-bottom: 1rem;
+    }}
+
+    /* ── Individual chip ── */
+    .chip {{
+        display: inline-flex;
+        flex-direction: column;
+        gap: 2px;
+        padding: 0.45rem 0.75rem;
+        border: 1px solid var(--vit-border);
+        border-radius: 8px;
+        background: var(--vit-chip-bg);
+        min-width: 90px;
+    }}
+    .chip-label {{
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: var(--vit-soft);
+    }}
+    .chip-value {{
+        font-size: 1rem;
+        font-weight: 800;
+        color: var(--vit-text);
+        line-height: 1.2;
+    }}
+    .chip-sub {{
+        font-size: 0.75rem;
+        color: var(--vit-muted);
+        line-height: 1.2;
+    }}
+    .chip.good {{
+        border-color: var(--vit-safe-color);
+        background: var(--vit-chip-good-bg);
+    }}
+    .chip.good .chip-label,
+    .chip.good .chip-sub {{ color: var(--vit-chip-good-text); opacity: 0.85; }}
+    .chip.good .chip-value {{ color: var(--vit-chip-good-text); }}
+    .chip.warn {{
+        border-color: var(--vit-moderate-color);
+        background: var(--vit-chip-warn-bg);
+    }}
+    .chip.warn .chip-label,
+    .chip.warn .chip-sub {{ color: var(--vit-chip-warn-text); opacity: 0.85; }}
+    .chip.warn .chip-value {{ color: var(--vit-chip-warn-text); }}
+    .chip.risk {{
+        border-color: var(--vit-dream-color);
+        background: var(--vit-chip-risk-bg);
+    }}
+    .chip.risk .chip-label,
+    .chip.risk .chip-sub {{ color: var(--vit-chip-risk-text); opacity: 0.85; }}
+    .chip.risk .chip-value {{ color: var(--vit-chip-risk-text); }}
+
+    /* ── Why note ── */
+    .result-note {{
+        font-size: 0.88rem;
+        color: var(--vit-muted);
+        line-height: 1.5;
+        padding: 0.55rem 0.8rem;
+        border-left: 3px solid var(--vit-border);
+        background: rgba(100,116,139,0.06);
+        border-radius: 0 6px 6px 0;
+    }}
+    .result-note strong {{ color: var(--vit-text); }}
+
+    /* ── Probability panel ── */
+    .prob-panel {{
+        border-left: 1px solid var(--vit-border);
+        padding-left: 1.25rem;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
+        justify-content: center;
+        gap: 6px;
+    }}
+    .prob-number {{
+        font-size: 2.4rem;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -1px;
+    }}
+    .prob-number.safe     {{ color: var(--vit-safe-color); }}
+    .prob-number.moderate {{ color: var(--vit-moderate-color); }}
+    .prob-number.dream    {{ color: var(--vit-dream-color); }}
+    .prob-number.unlikely {{ color: var(--vit-soft); }}
+    .prob-label {{
+        font-size: 0.82rem;
+        color: var(--vit-muted);
+        text-align: right;
+        font-weight: 600;
+    }}
+    .prob-bar-bg {{
+        height: 6px;
+        background: var(--vit-bar-bg);
+        border-radius: 3px;
+        overflow: hidden;
+        min-width: 130px;
+        margin-top: 2px;
+    }}
+    .prob-bar-fill {{ height: 100%; border-radius: 3px; }}
+    .score-label {{ font-size: 0.72rem; color: var(--vit-soft); text-align: right; }}
+    .cutoff-note {{
+        font-size: 0.75rem;
+        color: var(--vit-muted);
+        text-align: right;
+        margin-top: 2px;
+    }}
+
+    /* ── Badge ── */
+    .badge {{
+        display: inline-block;
+        font-size: 0.72rem;
+        font-weight: 700;
+        padding: 3px 10px;
+        border-radius: 99px;
+        letter-spacing: 0.02em;
+    }}
+    .badge-safe     {{ background: var(--vit-badge-safe-bg);     color: var(--vit-badge-safe-text); }}
+    .badge-moderate {{ background: var(--vit-badge-moderate-bg); color: var(--vit-badge-moderate-text); }}
+    .badge-dream    {{ background: var(--vit-badge-dream-bg);    color: var(--vit-badge-dream-text); }}
+    .badge-unlikely {{ background: var(--vit-chip-bg); color: var(--vit-muted); border: 1px solid var(--vit-border); }}
+
+    /* ── Metric cards ── */
+    .metric-grid {{
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.85rem;
+        margin-bottom: 1.5rem;
+    }}
+    .metric-card {{
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-radius: 10px;
+        padding: 1.1rem 1.4rem;
+        min-height: 110px;
+        box-shadow: var(--vit-shadow);
+    }}
+    .metric-card-label {{
+        font-size: 0.76rem;
+        color: var(--vit-soft);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+    }}
+    .metric-card-value {{
+        font-size: 1.95rem;
+        font-weight: 800;
+        color: var(--vit-text);
+        margin: 6px 0 3px;
+        line-height: 1;
+    }}
+    .metric-card-sub   {{ font-size: 0.83rem; color: var(--vit-muted); }}
+    .metric-card-sub.green {{ color: var(--vit-safe-color); font-weight: 600; }}
+
+    /* ── Context banner ── */
+    .context-banner {{
+        border: 1px solid var(--vit-border);
+        border-radius: 10px;
+        padding: 0.8rem 1.1rem;
+        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+        font-weight: 600;
+    }}
+    .context-banner.safe     {{ background: var(--safe-bg);     border-color: var(--safe-border);     color: var(--safe-text); }}
+    .context-banner.moderate {{ background: var(--moderate-bg); border-color: var(--moderate-border); color: var(--moderate-text); }}
+    .context-banner.dream    {{ background: var(--dream-bg);    border-color: var(--dream-border);    color: var(--dream-text); }}
+
+    /* ── Rank display ── */
+    .rank-big {{
+        font-size: 2.1rem;
+        font-weight: 800;
+        color: var(--vit-primary);
+        line-height: 1;
+        margin: 6px 0 2px;
+    }}
+
+    /* ── Streamlit native overrides ── */
+    h1, h2, h3, h4, h5, h6, p, label, span, div {{ color: inherit; }}
+    div[data-testid="stMetric"] {{
+        background: var(--vit-surface) !important;
+        border: 1px solid var(--vit-border) !important;
+        border-radius: 10px;
+        padding: 0.9rem 1rem;
+    }}
+    .stAlert, [data-testid="stAlert"] {{
+        background: var(--vit-info-bg) !important;
+        border-color: var(--vit-info-border) !important;
+        color: var(--vit-info-text) !important;
+        border-radius: 10px;
+    }}
+    div[data-testid="stTabs"] [data-baseweb="tab"] {{
+        font-size: 0.92rem;
+        padding: 8px 18px;
+        border-radius: 6px;
+        color: var(--vit-muted);
+        font-weight: 650;
+    }}
+    div[data-testid="stTabs"] [aria-selected="true"] {{ color: var(--vit-primary-dark) !important; }}
+    [data-testid="stSegmentedControl"] label[aria-checked="true"],
+    [data-testid="stSegmentedControl"] label[data-checked="true"] {{
+        background: var(--vit-primary) !important;
     }}
     [data-testid="stSegmentedControl"] div[role="radiogroup"] {{
         background: var(--vit-input) !important;
         border-color: var(--vit-border) !important;
     }}
-    [data-testid="stSegmentedControl"] label {{
-        background: transparent !important;
-        border-color: var(--vit-border) !important;
-    }}
-    [data-testid="stSegmentedControl"] label[aria-checked="true"],
-    [data-testid="stSegmentedControl"] label[data-checked="true"] {{
-        background: var(--vit-primary) !important;
-        color: #0b1120 !important;
-    }}
-    [data-testid="stSegmentedControl"] label[aria-checked="true"] *,
-    [data-testid="stSegmentedControl"] label[data-checked="true"] *,
-    [data-testid="stSegmentedControl"] label[aria-checked="true"] span,
-    [data-testid="stSegmentedControl"] label[data-checked="true"] span {{
-        color: #0b1120 !important;
-        fill: #0b1120 !important;
-    }}
-    [data-testid="stSegmentedControl"] label:not([aria-checked="true"]) *,
-    [data-testid="stSegmentedControl"] label:not([data-checked="true"]) * {{
-        color: var(--vit-text) !important;
-        fill: var(--vit-text) !important;
-    }}
-    [role="switch"],
-    [data-testid="stSwitch"] {{
-        background: var(--vit-input) !important;
-        border-color: var(--vit-border) !important;
-    }}
-    [role="switch"] *,
-    [data-testid="stSwitch"] * {{
-        color: var(--vit-text) !important;
-        fill: var(--vit-text) !important;
-    }}
-    [data-testid="stCaptionContainer"],
-    [data-testid="stCaptionContainer"] p {{
-        color: var(--vit-muted) !important;
-    }}
-    .stAlert,
-    [data-testid="stAlert"] {{
-        background: var(--vit-info-bg) !important;
-        border-color: var(--vit-info-border) !important;
-        color: var(--vit-info-text) !important;
-    }}
-    [data-testid="stAlert"] div,
-    [data-testid="stAlert"] p,
-    [data-testid="stAlert"] span {{
-        color: var(--vit-info-text) !important;
-    }}
-    [data-testid="stDataFrame"] * {{
-        color: var(--vit-text);
-    }}
-    .prob-bar-bg {{ background: var(--vit-bar-bg) !important; }}
-    .option-chip {{
-        border-color: var(--vit-border) !important;
-        color: var(--vit-muted) !important;
-        background: var(--vit-chip-bg) !important;
-    }}
-    .option-chip.good {{
-        color: var(--vit-chip-good-text) !important;
-        background: var(--vit-chip-good-bg) !important;
-        border-color: var(--vit-safe-color) !important;
-    }}
-    .option-chip.warn {{
-        color: var(--vit-chip-warn-text) !important;
-        background: var(--vit-chip-warn-bg) !important;
-        border-color: var(--vit-moderate-color) !important;
-    }}
-    .option-chip.risk {{
-        color: var(--vit-chip-risk-text) !important;
-        background: var(--vit-chip-risk-bg) !important;
-        border-color: var(--vit-dream-color) !important;
-    }}
-    .option-chip.good strong,
-    .option-chip.warn strong,
-    .option-chip.risk strong {{
-        color: inherit !important;
-    }}
-    .prob-number.safe {{ color: var(--vit-safe-color) !important; }}
-    .prob-number.moderate {{ color: var(--vit-moderate-color) !important; }}
-    .prob-number.dream {{ color: var(--vit-dream-color) !important; }}
-    .result-row.safe {{ border-left-color: var(--vit-safe-color) !important; }}
-    .result-row.moderate {{ border-left-color: var(--vit-moderate-color) !important; }}
-    .result-row.dream {{ border-left-color: var(--vit-dream-color) !important; }}
-    .result-row.unlikely {{ border-left-color: var(--vit-soft) !important; }}
-    .badge-safe {{
-        background: var(--vit-badge-safe-bg) !important;
-        color: var(--vit-badge-safe-text) !important;
-    }}
-    .badge-moderate {{
-        background: var(--vit-badge-moderate-bg) !important;
-        color: var(--vit-badge-moderate-text) !important;
-    }}
-    .badge-dream {{
-        background: var(--vit-badge-dream-bg) !important;
-        color: var(--vit-badge-dream-text) !important;
-    }}
-    .badge-unlikely {{
-        background: var(--vit-chip-bg) !important;
-        color: var(--vit-muted) !important;
-        border: 1px solid var(--vit-border) !important;
-    }}
-    div[data-testid="stTabs"] [data-baseweb="tab"] {{ color: var(--vit-muted) !important; }}
-    div[data-testid="stTabs"] [aria-selected="true"] {{ color: var(--vit-primary-dark) !important; }}
-    div[data-testid="stDataFrame"] {{ border-color: var(--vit-border) !important; }}
-    .context-banner.safe {{
-        background: {theme["safe_bg"]} !important;
-        border-color: {theme["safe_border"]} !important;
-        color: {theme["safe_text"]} !important;
-    }}
-    .context-banner.moderate {{
-        background: {theme["moderate_bg"]} !important;
-        border-color: {theme["moderate_border"]} !important;
-        color: {theme["moderate_text"]} !important;
-    }}
-    .context-banner.dream {{
-        background: {theme["dream_bg"]} !important;
-        border-color: {theme["dream_border"]} !important;
-        color: {theme["dream_text"]} !important;
-    }}
-    .footer-note {{
-        color: var(--vit-muted) !important;
+    [data-testid="stSegmentedControl"] label {{ color: var(--vit-text) !important; }}
+    [data-testid="stCaptionContainer"] p {{ color: var(--vit-muted) !important; }}
+    .footer-note {{ color: var(--vit-muted) !important; }}
+
+    /* ── Responsive ── */
+    @media (max-width: 900px) {{
+        [data-testid="stMainBlockContainer"] {{ padding: 1.25rem 1rem; }}
+        .metric-grid {{ grid-template-columns: repeat(2, 1fr); }}
+        .result-row {{ grid-template-columns: 1fr; }}
+        .prob-panel {{
+            align-items: flex-start;
+            border-left: none;
+            border-top: 1px solid var(--vit-border);
+            padding-left: 0;
+            padding-top: 1rem;
+        }}
+        .prob-bar-bg {{ width: 100%; }}
+        .prob-label, .score-label, .cutoff-note {{ text-align: left; }}
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -764,11 +573,13 @@ st.markdown("""
     <div class="vit-header-icon">🎓</div>
     <div>
         <h1>VIT Counselling Predictor</h1>
-        <p>Powered by real student data &nbsp;·&nbsp; Rank-based admission probability</p>
+        <p>Powered by real student data &nbsp;·&nbsp; Percentile-calibrated admission probability</p>
     </div>
 </div>
 <div class="info-strip">
-    ℹ️ Enter your VITEEE rank on the left, apply filters, and click <strong>Get Recommendations</strong> to see your personalised predictions. Accuracy improves as more students submit their allotments.
+    ℹ️ Enter your VITEEE rank on the left, apply filters, and click <strong>Get Recommendations</strong>
+    to see your personalised predictions. The predictor uses a <strong>90th-percentile cutoff model</strong>
+    so outlier ranks don't inflate estimates.
 </div>
 """, unsafe_allow_html=True)
 
@@ -781,9 +592,13 @@ st.sidebar.markdown("### ⚙️ Settings")
 rank = st.sidebar.number_input(
     "Your VITEEE rank",
     min_value=1, max_value=250000, step=1, value=5000,
-    help="Enter your VITEEE counselling rank, up to 2.5 lakh"
+    help="Enter your VITEEE counselling rank (up to 2.5 lakh)"
 )
-st.sidebar.markdown(f'<div class="rank-big">{rank:,}</div><div style="font-size:0.78rem;color:#9ca3af;margin-bottom:0.75rem;">rank entered</div>', unsafe_allow_html=True)
+st.sidebar.markdown(
+    f'<div class="rank-big">{rank:,}</div>'
+    f'<div style="font-size:0.8rem;color:var(--vit-muted);margin-bottom:0.85rem;">rank entered</div>',
+    unsafe_allow_html=True
+)
 
 sort_option = st.sidebar.selectbox(
     "Sort results by",
@@ -803,28 +618,22 @@ results_limit = st.sidebar.slider("Max results per category", min_value=5, max_v
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 🔍 Filters")
 
-# Quick filter for major branches
-st.sidebar.markdown("**Quick Filter**")
 branch_filter = st.sidebar.segmented_control(
-    "Select branch group",
-    ["All branches", "Just CSE", "ECE+EEE"],
-    default="All branches",
+    "Quick branch filter",
+    ["All", "CSE", "ECE+EEE"],
+    default="All",
     key="branch_filter"
 )
 
-# Define branch groups
-cse_programs = ["CSE Core", "CSE AIML", "CSE DS", "CSE Cybersecurity", "CSE Business Systems", "CSE Robotics", "CSE IoT", "CSE CPS"]
+cse_programs = ["CSE Core", "CSE AIML", "CSE DS", "CSE Cybersecurity",
+                "CSE Business Systems", "CSE Robotics", "CSE IoT", "CSE CPS"]
 ece_eee_programs = ["ECE Core", "Electrical"]
 
-# Campus filter
 all_campuses = sorted(master_df["Campus"].unique().tolist())
 selected_campuses = st.sidebar.multiselect("Campus", all_campuses, default=all_campuses)
 
-# Branch filter with preset
 all_branches = sorted(master_df["Branch"].unique().tolist())
-
-# Apply quick filter to default selection
-if branch_filter == "Just CSE":
+if branch_filter == "CSE":
     default_branches = [b for b in all_branches if b in cse_programs]
 elif branch_filter == "ECE+EEE":
     default_branches = [b for b in all_branches if b in ece_eee_programs]
@@ -832,13 +641,9 @@ else:
     default_branches = all_branches
 
 selected_branches = st.sidebar.multiselect(
-    "Branch (customize selection below)",
-    all_branches,
-    default=default_branches,
-    help="Use Quick Filter above, or customize here"
+    "Branch", all_branches, default=default_branches
 )
 
-# Fee filter
 all_fees = sorted(master_df["Fee"].unique().tolist())
 selected_fees = st.sidebar.multiselect(
     "Fee category",
@@ -848,106 +653,153 @@ selected_fees = st.sidebar.multiselect(
 
 st.sidebar.markdown("---")
 st.sidebar.markdown("### 📤 Share Your Data")
-st.sidebar.markdown('**Help improve predictions by sharing your counselling results**')
+st.sidebar.markdown("**Help improve predictions by sharing your counselling results**")
 
 col1, col2 = st.sidebar.columns(2)
 with col1:
-    st.link_button("📋 2025 Batch", "https://forms.gle/VG28i72zpKetFA4W6", width="stretch")
+    st.link_button("📋 Submit 2025", "https://forms.gle/VG28i72zpKetFA4W6", width="stretch")
 with col2:
-    st.info("Submit your rank & allotment", icon="ℹ️")
+    st.info("Share your rank & allotment", icon="ℹ️")
 
 st.sidebar.markdown("---")
 
 predict_button = st.sidebar.button(
     "🚀 Get Recommendations",
-    width="stretch",
-    type="primary",
-    key="predict_btn"
+    width="stretch", type="primary", key="predict_btn"
 )
 
 # =====================================================
-# RESULTS
+# HELPER FUNCTIONS
 # =====================================================
 
 def prob_bar(prob, kind):
-    colors = {"safe": "#059669", "moderate": "#d97706", "dream": "#dc2626", "unlikely": "#6b7280"}
+    colors = {
+        "safe": theme["safe_color"],
+        "moderate": theme["moderate_color"],
+        "dream": theme["dream_color"],
+        "unlikely": theme["soft"],
+    }
     c = colors.get(kind, "#9ca3af")
-    return f"""
-    <div class="prob-bar-bg">
-        <div class="prob-bar-fill" style="width:{min(prob,100):.1f}%;background:{c};"></div>
-    </div>"""
+    return (
+        f'<div class="prob-bar-bg">'
+        f'<div class="prob-bar-fill" style="width:{min(prob,100):.1f}%;background:{c};"></div>'
+        f'</div>'
+    )
+
 
 def confidence_clean(label):
     return label.replace(" 🟢", "").replace(" 🟡", "").replace(" 🔴", "")
 
-def confidence_class(confidence_pct):
-    if confidence_pct >= 70:
-        return "good"
-    if confidence_pct >= 40:
-        return "warn"
-    return "risk"
 
-def buffer_class(diff):
+def chip_class_from_buffer(diff):
     if diff >= 5000:
         return "good"
     if diff >= 0:
         return "warn"
     return "risk"
 
+
+def chip_class_from_confidence(pct):
+    if pct >= 70:
+        return "good"
+    if pct >= 40:
+        return "warn"
+    return "risk"
+
+
 def recommendation_reason(r):
     diff = r["rank_difference"]
-    if r["chance"] == "Safe":
-        if diff >= 5000:
-            return "Large rank cushion. Strong option to prioritise."
-        return "Inside the cutoff, but keep backups because the cushion is narrow."
-    if r["chance"] == "Moderate":
+    chance = r["chance"]
+    sd = r.get("std_dev", 0)
+    sd_note = f" (±{sd:,} rank spread observed)" if sd > 3000 else ""
+    if chance == "Safe":
+        if diff >= 10000:
+            return f"Large rank cushion of <strong>{diff:,}</strong> ranks. Very strong primary choice{sd_note}."
+        if diff >= 3000:
+            return f"Comfortable buffer of <strong>{diff:,}</strong> ranks. Good primary pick{sd_note}."
+        return f"Inside the cutoff with a <strong>{diff:,}</strong> rank buffer{sd_note}. Keep 1–2 backups."
+    if chance == "Moderate":
         if diff >= 0:
-            return "Inside the cutoff, but the margin is tight."
-        return "Slightly beyond the cutoff. Keep as a backup only."
-    return "Outside the observed cutoff. Add only if you are comfortable taking a chance."
+            return f"Within the cutoff but margin is narrow (<strong>{diff:,}</strong> ranks){sd_note}. Solid backup."
+        return f"Slightly beyond the observed cutoff by <strong>{abs(diff):,}</strong> ranks{sd_note}. Backup only."
+    if chance == "Dream":
+        return f"Outside the cutoff by <strong>{abs(diff):,}</strong> ranks. List last if at all{sd_note}."
+    return f"Far outside the cutoff ({abs(diff):,} ranks). Not recommended{sd_note}."
+
 
 def result_row_html(r, rank, kind):
     diff = r["rank_difference"]
-    sign = "+" if diff >= 0 else "-"
-    diff_word = "buffer" if diff >= 0 else "shortfall"
-    diff_label = f"{sign}{abs(diff):,} {diff_word}"
-    badge_map = {"safe": "badge-safe", "moderate": "badge-moderate", "dream": "badge-dream", "unlikely": "badge-unlikely"}
-    badge_text = {"safe": "Safe", "moderate": "Moderate", "dream": "Reach", "unlikely": "Not possible"}
-    badge = f'<span class="badge {badge_map[kind]}">{badge_text[kind]}</span>'
-    confidence_label = confidence_clean(r["confidence"])
-    option_title = escape(r["branch"])
-    campus = escape(r["campus"])
-    reason = escape(recommendation_reason(r))
+    sign = "+" if diff >= 0 else "−"
+    margin_label = f"{sign}{abs(diff):,}"
+    margin_sub = "buffer ✓" if diff >= 0 else "shortfall ✗"
 
-    return f"""
-    <div class="result-row {kind}">
-        <div style="flex:1;min-width:0;">
-            <div class="result-topline">
-                <div class="result-name">{option_title}</div>
-                {badge}
-            </div>
-            <div class="option-chip-row">
-                <span class="option-chip">Campus <strong>{campus}</strong></span>
-                <span class="option-chip">Fee <strong>Cat {r['fee']}</strong></span>
-                <span class="option-chip">Closing <strong>{r['closing_rank']:,}</strong></span>
-                <span class="option-chip {buffer_class(diff)}">Rank margin <strong>{diff_label}</strong></span>
-                <span class="option-chip">Data <strong>{r['responses']} responses</strong></span>
-                <span class="option-chip {confidence_class(r['confidence_pct'])}">Confidence <strong>{confidence_label}</strong></span>
-            </div>
-            <div class="result-note">
-                <strong>Why:</strong> {reason}
-            </div>
-        </div>
-        <div class="prob-panel">
-            <div class="prob-number {kind}">{r['probability']:.1f}%</div>
-            <div class="prob-label">{badge_text[kind]} chance</div>
-            {prob_bar(r['probability'], kind)}
-            <div class="score-label">Score {r['recommendation_score']:.1f}</div>
-        </div>
-    </div>"""
+    badge_map  = {"safe": "badge-safe", "moderate": "badge-moderate",
+                  "dream": "badge-dream", "unlikely": "badge-unlikely"}
+    badge_text = {"safe": "Safe ✓", "moderate": "Moderate", "dream": "Reach", "unlikely": "Very Unlikely"}
+    badge_html = f'<span class="badge {badge_map[kind]}">{badge_text[kind]}</span>'
+
+    conf_label = confidence_clean(r["confidence"])
+    conf_class = chip_class_from_confidence(r["confidence_pct"])
+    buf_class  = chip_class_from_buffer(diff)
+
+    reason = recommendation_reason(r)
+    branch = escape(r["branch"])
+    campus = escape(r["campus"])
+    sd_val = r.get("std_dev", 0)
+
+    # Build spread chip separately — never inline conditionals inside f-strings
+    if sd_val > 1500:
+        spread_chip = (
+            '<div class="chip warn">'
+            '<span class="chip-label">Spread</span>'
+            f'<span class="chip-value">&#177;{sd_val:,}</span>'
+            '<span class="chip-sub">rank std dev</span>'
+            '</div>'
+        )
+    else:
+        spread_chip = ""
+
+    true_max = r.get("true_max", r["closing_rank"])
+    prob_bar_html = prob_bar(r["probability"], kind)
+    badge_label = badge_text[kind]
+
+    return (
+        f'<div class="result-row {kind}">'
+        f'<div style="min-width:0;">'
+        f'<div class="result-topline">'
+        f'<span class="result-branch">{branch}</span>'
+        f'{badge_html}'
+        f'</div>'
+        f'<div class="chip-row">'
+        f'<div class="chip"><span class="chip-label">Campus</span><span class="chip-value">{campus}</span></div>'
+        f'<div class="chip"><span class="chip-label">Fee Cat.</span><span class="chip-value">{r["fee"]}</span></div>'
+        f'<div class="chip"><span class="chip-label">Cutoff Rank</span><span class="chip-value">{r["closing_rank"]:,}</span><span class="chip-sub">90th pct &#183; true max {true_max:,}</span></div>'
+        f'<div class="chip {buf_class}"><span class="chip-label">Rank Margin</span><span class="chip-value">{margin_label}</span><span class="chip-sub">{margin_sub}</span></div>'
+        f'<div class="chip {conf_class}"><span class="chip-label">Confidence</span><span class="chip-value">{conf_label}</span><span class="chip-sub">{r["responses"]} responses</span></div>'
+        f'{spread_chip}'
+        f'</div>'
+        f'<div class="result-note">{reason}</div>'
+        f'</div>'
+        f'<div class="prob-panel">'
+        f'<div class="prob-number {kind}">{r["probability"]:.0f}%</div>'
+        f'<div class="prob-label">{badge_label} chance</div>'
+        f'{prob_bar_html}'
+        f'<div class="cutoff-note">cutoff {r["closing_rank"]:,}</div>'
+        f'<div class="score-label">score {r["recommendation_score"]:.1f}</div>'
+        f'</div>'
+        f'</div>'
+    )
+
 
 def section_header(icon, title, count):
-    st.markdown(f'<div class="section-heading">{icon} {title} ({count})</div>', unsafe_allow_html=True)
+    st.markdown(
+        f'<div class="section-heading">{icon} {title} &nbsp;·&nbsp; {count} option{"s" if count != 1 else ""}</div>',
+        unsafe_allow_html=True
+    )
+
+# =====================================================
+# RESULTS
+# =====================================================
 
 if predict_button:
     all_results = recommend(rank, sort_by=sort_mapping[sort_option])
@@ -961,11 +813,11 @@ if predict_button:
     ]
 
     if not filtered_results:
-        st.markdown("""
-        <div class="context-banner dream">
-            No options found for your selected filters. Try selecting more campuses, branches, or fee categories.
-        </div>
-        """, unsafe_allow_html=True)
+        st.markdown(
+            '<div class="context-banner dream">'
+            'No options match your filters. Try selecting more campuses, branches, or fee categories.'
+            '</div>', unsafe_allow_html=True
+        )
     else:
         rank_stats = get_rank_statistics(rank)
         safe_list     = [r for r in filtered_results if r["chance"] == "Safe"]
@@ -974,7 +826,7 @@ if predict_button:
         unlikely_list = [r for r in filtered_results if r["chance"] == "Very Unlikely"]
         avg_prob = sum(r["probability"] for r in filtered_results) / len(filtered_results)
 
-        # ── Metrics ──────────────────────────────────────────────────
+        # ── Metrics ──────────────────────────────────────────
         st.markdown(f"""
         <div class="metric-grid">
             <div class="metric-card">
@@ -990,50 +842,63 @@ if predict_button:
             <div class="metric-card">
                 <div class="metric-card-label">Safe options</div>
                 <div class="metric-card-value">{len(safe_list)}</div>
-                <div class="metric-card-sub {'green' if safe_list else ''}">{"High chance" if safe_list else "None found"}</div>
+                <div class="metric-card-sub {'green' if safe_list else ''}">{"High probability seats" if safe_list else "None in current filters"}</div>
             </div>
             <div class="metric-card">
                 <div class="metric-card-label">Avg probability</div>
                 <div class="metric-card-value">{avg_prob:.1f}%</div>
-                <div class="metric-card-sub">across all options</div>
+                <div class="metric-card-sub">across all filtered options</div>
             </div>
         </div>
         """, unsafe_allow_html=True)
 
-        categorized = get_recommendations_by_category(filtered_results)
-
-        # ── Safe ─────────────────────────────────────────────────────
+        # ── Safe ─────────────────────────────────────────────
         if safe_list:
             section_header("✅", "Primary picks — strong rank fit", len(safe_list))
-            st.markdown('<div class="context-banner safe">Best fit for your rank. Sort these by branch preference, campus, and fee category first.</div>', unsafe_allow_html=True)
-            rows_html = "".join(result_row_html(r, rank, "safe") for r in safe_list[:results_limit])
-            st.markdown(rows_html, unsafe_allow_html=True)
+            st.markdown(
+                '<div class="context-banner safe">Your rank sits comfortably inside these cutoffs. Prioritise by campus preference and fee category.</div>',
+                unsafe_allow_html=True
+            )
+            for r in safe_list[:results_limit]:
+                st.markdown(result_row_html(r, rank, "safe"), unsafe_allow_html=True)
 
-        # ── Moderate ─────────────────────────────────────────────────
+        # ── Moderate ─────────────────────────────────────────
         if moderate_list:
             section_header("⚡", "Backup picks — possible but tighter", len(moderate_list))
-            st.markdown('<div class="context-banner moderate">Useful backups. These may have a narrow buffer, low confidence, or a branch/campus tradeoff.</div>', unsafe_allow_html=True)
-            rows_html = "".join(result_row_html(r, rank, "moderate") for r in moderate_list[:results_limit])
-            st.markdown(rows_html, unsafe_allow_html=True)
+            st.markdown(
+                '<div class="context-banner moderate">These are within reach but have a narrow buffer, high spread, or limited data. Good backups.</div>',
+                unsafe_allow_html=True
+            )
+            for r in moderate_list[:results_limit]:
+                st.markdown(result_row_html(r, rank, "moderate"), unsafe_allow_html=True)
 
-        # ── Dream ────────────────────────────────────────────────────
+        # ── Dream ────────────────────────────────────────────
         if dream_list:
-            section_header("🔥", "Reach picks — add sparingly", len(dream_list))
-            st.markdown('<div class="context-banner dream">These are outside or near the observed cutoff. Keep them low in your preference order.</div>', unsafe_allow_html=True)
-            rows_html = "".join(result_row_html(r, rank, "dream") for r in dream_list[:results_limit])
-            st.markdown(rows_html, unsafe_allow_html=True)
+            section_header("🔥", "Reach picks — low probability", len(dream_list))
+            st.markdown(
+                '<div class="context-banner dream">Outside or near the observed cutoff. Add sparingly — list these last in your preference order.</div>',
+                unsafe_allow_html=True
+            )
+            for r in dream_list[:results_limit]:
+                st.markdown(result_row_html(r, rank, "dream"), unsafe_allow_html=True)
 
-        # ── Very unlikely / no possible options ──────────────────────
+        # ── Very Unlikely ─────────────────────────────────────
         if not safe_list and not moderate_list and not dream_list:
-            section_header("⛔", "No possible options for this filter", len(unlikely_list))
-            st.markdown('<div class="context-banner dream">Your rank is far outside the observed cutoffs for these filters. Broaden campus, branch, or fee category to find realistic choices.</div>', unsafe_allow_html=True)
-            rows_html = "".join(result_row_html(r, rank, "unlikely") for r in unlikely_list[:results_limit])
-            st.markdown(rows_html, unsafe_allow_html=True)
+            section_header("⛔", "No viable options for these filters", len(unlikely_list))
+            st.markdown(
+                '<div class="context-banner dream">Your rank is far outside observed cutoffs. Broaden your campus, branch, or fee selection.</div>',
+                unsafe_allow_html=True
+            )
+            for r in unlikely_list[:results_limit]:
+                st.markdown(result_row_html(r, rank, "unlikely"), unsafe_allow_html=True)
         elif unlikely_list:
-            section_header("⛔", "Not recommended — very unlikely", len(unlikely_list))
-            st.markdown('<div class="context-banner dream">These match your filters but are far outside the observed cutoff. Use only for awareness.</div>', unsafe_allow_html=True)
-            rows_html = "".join(result_row_html(r, rank, "unlikely") for r in unlikely_list[:min(results_limit, 5)])
-            st.markdown(rows_html, unsafe_allow_html=True)
+            section_header("⛔", "Not recommended", len(unlikely_list))
+            st.markdown(
+                '<div class="context-banner dream">These match your filters but are well outside the observed cutoff. For awareness only.</div>',
+                unsafe_allow_html=True
+            )
+            for r in unlikely_list[:min(results_limit, 5)]:
+                st.markdown(result_row_html(r, rank, "unlikely"), unsafe_allow_html=True)
 
 # =====================================================
 # DATASET ANALYTICS
@@ -1058,6 +923,7 @@ CHART_THEME = dict(
     hoverlabel=dict(bgcolor=theme["hover_bg"], font_size=13, font_color=theme["hover_text"]),
 )
 
+
 def readable_count_series(series, limit=12):
     counts = series.value_counts()
     if len(counts) <= limit:
@@ -1066,32 +932,21 @@ def readable_count_series(series, limit=12):
     visible.loc["Other"] = counts.iloc[limit - 1:].sum()
     return visible
 
+
 def style_chart(fig, *, showlegend=False):
     fig.update_layout(
-        **CHART_THEME,
-        showlegend=showlegend,
-        legend=dict(
-            font=dict(size=12, color=theme["text"]),
-            bgcolor=theme["legend_bg"],
-            bordercolor=theme["border"],
-            borderwidth=1,
-        ),
-        xaxis=dict(
-            title_font=dict(color=theme["text"], size=13),
-            tickfont=dict(color=theme["muted"], size=12),
-            gridcolor=theme["grid"],
-            zerolinecolor=theme["axis"],
-            linecolor=theme["axis"],
-        ),
-        yaxis=dict(
-            title_font=dict(color=theme["text"], size=13),
-            tickfont=dict(color=theme["muted"], size=12),
-            gridcolor=theme["grid"],
-            zerolinecolor=theme["axis"],
-            linecolor=theme["axis"],
-        ),
+        **CHART_THEME, showlegend=showlegend,
+        legend=dict(font=dict(size=12, color=theme["text"]), bgcolor=theme["legend_bg"],
+                    bordercolor=theme["border"], borderwidth=1),
+        xaxis=dict(title_font=dict(color=theme["text"], size=13),
+                   tickfont=dict(color=theme["muted"], size=12),
+                   gridcolor=theme["grid"], zerolinecolor=theme["axis"], linecolor=theme["axis"]),
+        yaxis=dict(title_font=dict(color=theme["text"], size=13),
+                   tickfont=dict(color=theme["muted"], size=12),
+                   gridcolor=theme["grid"], zerolinecolor=theme["axis"], linecolor=theme["axis"]),
     )
     return fig
+
 
 def style_pie(fig):
     style_chart(fig, showlegend=True)
@@ -1104,31 +959,25 @@ def style_pie(fig):
     )
     return fig
 
+
 tab1, tab2, tab3, tab4 = st.tabs(["Branch", "Campus", "Fee category", "Raw data"])
 
 with tab1:
     c1, c2 = st.columns(2)
     branch_counts = readable_count_series(master_df["Branch"], limit=14)
     with c1:
-        fig = px.bar(
-            x=branch_counts.values,
-            y=branch_counts.index,
-            orientation="h",
-            labels={"x": "Responses", "y": "Branch"},
-            title="Top branches by responses",
-            color=branch_counts.values,
-            color_continuous_scale=["#c7d2fe", "#4f46e5", "#1e1b4b"],
-        )
+        fig = px.bar(x=branch_counts.values, y=branch_counts.index, orientation="h",
+                     labels={"x": "Responses", "y": "Branch"}, title="Top branches by responses",
+                     color=branch_counts.values,
+                     color_continuous_scale=["#c7d2fe", "#4f46e5", "#1e1b4b"])
         fig.update_layout(coloraxis_showscale=False, yaxis=dict(autorange="reversed"))
         style_chart(fig)
-        fig.update_traces(marker_line_width=0, text=branch_counts.values, textposition="outside", cliponaxis=False)
+        fig.update_traces(marker_line_width=0, text=branch_counts.values,
+                          textposition="outside", cliponaxis=False)
         st.plotly_chart(fig, width="stretch")
     with c2:
-        fig = px.pie(
-            values=branch_counts.values, names=branch_counts.index,
-            title="Branch share",
-            color_discrete_sequence=px.colors.qualitative.Safe,
-        )
+        fig = px.pie(values=branch_counts.values, names=branch_counts.index,
+                     title="Branch share", color_discrete_sequence=px.colors.qualitative.Safe)
         style_pie(fig)
         st.plotly_chart(fig, width="stretch")
 
@@ -1136,23 +985,18 @@ with tab2:
     c1, c2 = st.columns(2)
     campus_counts = master_df["Campus"].value_counts()
     with c1:
-        fig = px.bar(
-            x=campus_counts.index, y=campus_counts.values,
-            labels={"x": "Campus", "y": "Responses"},
-            title="Responses by campus",
-            color=campus_counts.values,
-            color_continuous_scale=["#bae6fd", "#0284c7", "#0c4a6e"],
-        )
+        fig = px.bar(x=campus_counts.index, y=campus_counts.values,
+                     labels={"x": "Campus", "y": "Responses"}, title="Responses by campus",
+                     color=campus_counts.values,
+                     color_continuous_scale=["#bae6fd", "#0284c7", "#0c4a6e"])
         fig.update_layout(coloraxis_showscale=False)
         style_chart(fig)
-        fig.update_traces(marker_line_width=0, text=campus_counts.values, textposition="outside", cliponaxis=False)
+        fig.update_traces(marker_line_width=0, text=campus_counts.values,
+                          textposition="outside", cliponaxis=False)
         st.plotly_chart(fig, width="stretch")
     with c2:
-        fig = px.pie(
-            values=campus_counts.values, names=campus_counts.index,
-            title="Share by campus",
-            color_discrete_sequence=px.colors.qualitative.Bold,
-        )
+        fig = px.pie(values=campus_counts.values, names=campus_counts.index,
+                     title="Share by campus", color_discrete_sequence=px.colors.qualitative.Bold)
         style_pie(fig)
         st.plotly_chart(fig, width="stretch")
 
@@ -1161,23 +1005,18 @@ with tab3:
     fee_counts = master_df["Fee"].value_counts().sort_index()
     fee_labels = ["Category " + str(int(f)) for f in fee_counts.index]
     with c1:
-        fig = px.bar(
-            x=fee_labels, y=fee_counts.values,
-            labels={"x": "Fee category", "y": "Students"},
-            title="Students by fee category",
-            color=fee_counts.values,
-            color_continuous_scale=["#bbf7d0", "#16a34a", "#14532d"],
-        )
+        fig = px.bar(x=fee_labels, y=fee_counts.values,
+                     labels={"x": "Fee category", "y": "Students"}, title="Students by fee category",
+                     color=fee_counts.values,
+                     color_continuous_scale=["#bbf7d0", "#16a34a", "#14532d"])
         fig.update_layout(coloraxis_showscale=False)
         style_chart(fig)
-        fig.update_traces(marker_line_width=0, text=fee_counts.values, textposition="outside", cliponaxis=False)
+        fig.update_traces(marker_line_width=0, text=fee_counts.values,
+                          textposition="outside", cliponaxis=False)
         st.plotly_chart(fig, width="stretch")
     with c2:
-        fig = px.pie(
-            values=fee_counts.values, names=fee_labels,
-            title="Share by fee category",
-            color_discrete_sequence=px.colors.qualitative.Pastel,
-        )
+        fig = px.pie(values=fee_counts.values, names=fee_labels,
+                     title="Share by fee category", color_discrete_sequence=px.colors.qualitative.Pastel)
         style_pie(fig)
         st.plotly_chart(fig, width="stretch")
 
@@ -1187,18 +1026,15 @@ with tab4:
         search_branch = st.selectbox("Filter by branch", ["All"] + sorted(master_df["Branch"].unique().tolist()))
     with c2:
         display_count = st.slider("Rows to show", min_value=10, max_value=100, value=20, step=10)
-
     display_df = master_df if search_branch == "All" else master_df[master_df["Branch"] == search_branch]
-    display_df = display_df.head(display_count)
-
     st.dataframe(
-        display_df, width="stretch", height=400,
+        display_df.head(display_count), width="stretch", height=400,
         column_config={
             "Rank": st.column_config.NumberColumn(format="%d"),
             "Fee":  st.column_config.NumberColumn(format="Category %d"),
         }
     )
-    st.caption(f"Showing {len(display_df):,} of {len(master_df):,} records")
+    st.caption(f"Showing {min(display_count, len(display_df)):,} of {len(display_df):,} records")
 
 # =====================================================
 # FOOTER
@@ -1212,11 +1048,17 @@ with c2: st.info(f"📌 {len(master_df):,} student records")
 with c3: st.info("🔄 Accuracy improves with more responses")
 
 st.markdown("""
-<div class="footer-note" style="font-size:0.82rem;margin-top:1rem;line-height:1.7;">
+<div class="footer-note" style="font-size:0.84rem;margin-top:1rem;line-height:1.8;">
 <strong>How to read the results</strong><br>
-<b>Safe (75%+)</b> — Very likely. Make these your primary choices.<br>
-<b>Moderate (40–75%)</b> — Possible but not guaranteed. Good backups.<br>
-<b>Dream (15–40%)</b> — Unlikely. Include as last-resort options only.<br><br>
-<em>Disclaimer: Predictions are based on historical allotment data. Actual results may differ. Always consult official VIT counselling resources.</em>
+<b>Safe (75%+)</b> — Very likely to get a seat. These should be your primary choices.<br>
+<b>Moderate (40–75%)</b> — Possible but not guaranteed. Use as backups.<br>
+<b>Reach (15–40%)</b> — Unlikely. Include only as last-resort options.<br><br>
+<strong>About the model</strong><br>
+Closing ranks use the <strong>90th percentile</strong> of observed data (not the maximum) so a single outlier
+doesn't inflate the cutoff. Standard deviation of observed ranks is factored in — options with volatile
+historical cutoffs receive lower probabilities. Both the historical Excel dataset and live Google Form
+responses are merged and deduplicated before analysis.<br><br>
+<em>Disclaimer: Predictions are based on historical allotment data. Actual results may vary.
+Always consult official VIT counselling resources before making final decisions.</em>
 </div>
 """, unsafe_allow_html=True)
