@@ -22,6 +22,7 @@ from supabase import create_client, Client
 import pandas as pd
 from datetime import datetime, timezone
 from typing import Optional
+import re
 
 
 # ── Singleton client ─────────────────────────────────────────────────────────
@@ -161,22 +162,100 @@ def insert_report(
 
     Returns True on success, False on any error.
     """
-    try:
-        get_supabase().table("reports").insert({
-            "user_rank":             int(user_rank),
-            "campus":                str(campus),
-            "branch":                str(branch),
-            "fee_category":          int(fee),
-            "predicted_probability": round(float(probability), 1),
-            "predicted_chance":      str(chance),
-            "report_type":           str(report_type),
-            "reason_text":           str(reason_text).strip() or None,
-            "created_at":            datetime.now(timezone.utc).isoformat(),
-        }).execute()
-        return True
-    except Exception as exc:
-        print(f"[db] insert_report error: {exc}")
-        return False
+    clean_reason = str(reason_text).strip()
+    payload = {
+        "user_rank":             int(user_rank),
+        "campus":                str(campus),
+        "branch":                str(branch),
+        "fee_category":          int(fee),
+        "predicted_probability": round(float(probability), 1),
+        "predicted_chance":      str(chance),
+        "report_type":           str(report_type),
+        "reason_text":           clean_reason or None,
+        "created_at":            datetime.now(timezone.utc).isoformat(),
+    }
+
+    # Some deployed Supabase projects may still have the first reports schema,
+    # before the `report_type` or app-managed `created_at` columns were added.
+    # Try the current schema first, then gracefully retry with compatible payloads
+    # so user reports are not silently lost during schema drift.
+    payload_attempts = [payload]
+
+    legacy_reason = f"[{report_type}] {clean_reason}" if clean_reason else f"[{report_type}]"
+    without_report_type = dict(payload)
+    without_report_type.pop("report_type", None)
+    without_report_type["reason_text"] = legacy_reason
+    payload_attempts.append(without_report_type)
+
+    without_created_at = dict(payload)
+    without_created_at.pop("created_at", None)
+    payload_attempts.append(without_created_at)
+
+    legacy_minimal = dict(without_report_type)
+    legacy_minimal.pop("created_at", None)
+    payload_attempts.append(legacy_minimal)
+
+    last_exc: Exception | None = None
+    for attempt_payload in payload_attempts:
+        try:
+            get_supabase().table("reports").insert(attempt_payload).execute()
+            return True
+        except Exception as exc:
+            last_exc = exc
+
+    print(f"[db] insert_report error: {last_exc}")
+    return False
+
+
+def _first_present(row: pd.Series, candidates: list[str], default=""):
+    """Return the first non-empty value from possible column names."""
+    for col in candidates:
+        if col in row and pd.notna(row[col]) and row[col] != "":
+            return row[col]
+    return default
+
+
+def _normalise_report_rows(rows: list[dict]) -> pd.DataFrame:
+    """Convert Supabase report rows from current or legacy schemas for admin UI."""
+    _empty_cols = [
+        "id", "Timestamp", "User Rank", "Campus", "Branch",
+        "Fee Category", "Predicted Probability (%)",
+        "Predicted Chance", "Report Type", "Reason",
+    ]
+    if not rows:
+        return pd.DataFrame(columns=_empty_cols)
+
+    raw = pd.DataFrame(rows)
+    normalised_rows: list[dict] = []
+
+    for _, row in raw.iterrows():
+        reason = _first_present(row, ["reason_text", "reason", "Reason", "details", "Details"], "")
+        report_type = _first_present(row, ["report_type", "Report Type", "type", "issue_type"], "other")
+
+        # Legacy inserts stored the report type at the start of the reason, e.g.
+        # "[wrong_cutoff] cutoff looked too low". Recover it for filtering/cards.
+        if (not report_type or report_type == "other") and isinstance(reason, str):
+            match = re.match(r"^\[([a-z_]+)\]\s*(.*)$", reason.strip())
+            if match:
+                report_type = match.group(1)
+                reason = match.group(2).strip()
+
+        normalised_rows.append({
+            "id": _first_present(row, ["id", "ID"], ""),
+            "Timestamp": _first_present(row, ["created_at", "timestamp", "Timestamp", "submitted_at", "Submitted At"], ""),
+            "User Rank": _first_present(row, ["user_rank", "User Rank", "rank", "Rank"], ""),
+            "Campus": _first_present(row, ["campus", "Campus"], ""),
+            "Branch": _first_present(row, ["branch", "Branch"], ""),
+            "Fee Category": _first_present(row, ["fee_category", "Fee Category", "fee", "Fee"], ""),
+            "Predicted Probability (%)": _first_present(row, ["predicted_probability", "Predicted Probability (%)", "probability", "Probability"], ""),
+            "Predicted Chance": _first_present(row, ["predicted_chance", "Predicted Chance", "chance", "Chance"], ""),
+            "Report Type": report_type or "other",
+            "Reason": reason or "(no reason given)",
+        })
+
+    df = pd.DataFrame(normalised_rows, columns=_empty_cols)
+    df["Reason"] = df["Reason"].replace("", "(no reason given)").fillna("(no reason given)")
+    return df
 
 
 def fetch_reports() -> Optional[pd.DataFrame]:
@@ -190,36 +269,26 @@ def fetch_reports() -> Optional[pd.DataFrame]:
     Returns None on connection/query error (caller shows an error banner).
     Returns an empty DataFrame when the table has no rows.
     """
-    _empty_cols = [
-        "id", "Timestamp", "User Rank", "Campus", "Branch",
-        "Fee Category", "Predicted Probability (%)",
-        "Predicted Chance", "Report Type", "Reason",
-    ]
     try:
-        resp = (
-            get_supabase()
-            .table("reports")
-            .select("*")
-            .order("created_at", desc=True)
-            .execute()
-        )
-        if not resp.data:
-            return pd.DataFrame(columns=_empty_cols)
+        table = get_supabase().table("reports")
+        try:
+            resp = table.select("*").order("created_at", desc=True).execute()
+        except Exception:
+            # Older deployments may not have created_at; fetch without server-side
+            # ordering instead of showing an empty dashboard.
+            resp = get_supabase().table("reports").select("*").execute()
 
-        df = pd.DataFrame(resp.data).rename(columns={
-            "user_rank":             "User Rank",
-            "campus":                "Campus",
-            "branch":                "Branch",
-            "fee_category":          "Fee Category",
-            "predicted_probability": "Predicted Probability (%)",
-            "predicted_chance":      "Predicted Chance",
-            "report_type":           "Report Type",
-            "reason_text":           "Reason",
-            "created_at":            "Timestamp",
-        })
-        # Fill missing reason with placeholder
-        if "Reason" in df.columns:
-            df["Reason"] = df["Reason"].fillna("(no reason given)")
+        rows = resp.data or []
+        df = _normalise_report_rows(rows)
+
+        if not df.empty and "Timestamp" in df.columns:
+            sort_key = pd.to_datetime(df["Timestamp"], errors="coerce", utc=True)
+            df = (
+                df.assign(_sort_timestamp=sort_key)
+                .sort_values("_sort_timestamp", ascending=False, na_position="last")
+                .drop(columns=["_sort_timestamp"])
+                .reset_index(drop=True)
+            )
         return df
 
     except Exception as exc:

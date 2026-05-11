@@ -1126,6 +1126,9 @@ def render_result_with_report(r, rank, kind):
             unsafe_allow_html=True,
         )
 
+        if st.session_state.get(f"report_save_err_{card_key}"):
+            st.error("Last report submission did not save. Please try submitting again.")
+
         # Issue type selector
         st.markdown('<div style="font-size:0.82rem;font-weight:700;color:var(--vit-text);margin-bottom:0.5rem;">What\'s wrong with this prediction?</div>', unsafe_allow_html=True)
         type_cols = st.columns(3)
@@ -1177,11 +1180,16 @@ def render_result_with_report(r, rank, kind):
                     report_type=selected_type,   # ← separate column in DB
                     reason_text=reason_text,      # ← clean, no [tag] prefix
                 )
-                st.session_state.report_submitted[card_key] = True
-                st.session_state.report_open[card_key] = False
-                if not ok:
+                if ok:
+                    st.session_state.report_submitted[card_key] = True
+                    st.session_state.report_open[card_key] = False
+                    st.session_state.pop(f"report_save_err_{card_key}", None)
+                    st.rerun()
+                else:
+                    st.session_state.report_submitted[card_key] = False
+                    st.session_state.report_open[card_key] = True
                     st.session_state[f"report_save_err_{card_key}"] = True
-                st.rerun()
+                    st.error("Report could not be saved. Please try again or contact the admin.")
         with col_cancel:
             if st.button("✖ Cancel", key=f"report_cancel_{card_key}"):
                 st.session_state.report_open[card_key] = False
@@ -1524,7 +1532,7 @@ if query_params.get("admin") == "1":
             reports_df = get_reports()
 
         if reports_df is None:
-            st.error("Failed to load reports — check Google Sheets connection.")
+            st.error("Failed to load reports — check Supabase reports table connection.")
         elif reports_df.empty:
             st.info("📭 No reports submitted yet.")
         else:
@@ -1664,6 +1672,19 @@ if query_params.get("admin") == "1":
                     is_no_reason = reason_raw in ("(no reason given)", "", "nan")
                     reason_class = "no-reason" if is_no_reason else ""
                     reason_display = "No details provided." if is_no_reason else escape(reason_raw)
+
+                    rtype_raw = str(row.get("Report Type", "other") or "other")
+                    rtype_meta = REPORT_TYPE_META.get(rtype_raw, {"label": rtype_raw, "color": "#64748b"})
+                    report_type_badge = (
+                        f'<span style="'
+                        f'font-size:0.72rem;font-weight:700;'
+                        f'padding:3px 10px;border-radius:99px;'
+                        f'background:{rtype_meta["color"]}22;'
+                        f'color:{rtype_meta["color"]};'
+                        f'border:1px solid {rtype_meta["color"]}55;">'
+                        f'{escape(str(rtype_meta["label"]))}'
+                        f'</span>'
+                    )
 
                     ts = str(row.get("Timestamp", ""))[:16]
 
