@@ -739,6 +739,7 @@ def recommendation_reason(r):
     return f"Far outside the cutoff ({abs(diff):,} ranks). Not recommended{sd_note}."
 
 
+
 def result_row_html(r, rank, kind):
     diff = r["rank_difference"]
     sign = "+" if diff >= 0 else "−"
@@ -750,11 +751,37 @@ def result_row_html(r, rank, kind):
     badge_text = {"safe": "Safe ✓", "moderate": "Moderate", "dream": "Reach", "unlikely": "Very Unlikely"}
     badge_html = f'<span class="badge {badge_map[kind]}">{badge_text[kind]}</span>'
 
+    # ── Data-insufficient badge ────────────────────────────────────────────
+    if r.get("data_insufficient"):
+        insuff_badge = (
+            '<span class="badge" style="'
+            'background:#fef3c7;color:#92400e;'
+            'border:1px solid #fcd34d;margin-left:4px;">'
+            '⚠ Data Insufficient'
+            '</span>'
+        )
+    else:
+        insuff_badge = ""
+
     conf_label = confidence_clean(r["confidence"])
     conf_class = chip_class_from_confidence(r["confidence_pct"])
     buf_class  = chip_class_from_buffer(diff)
 
-    reason = recommendation_reason(r)
+    # ── Reason note ───────────────────────────────────────────────────────
+    if r.get("data_insufficient"):
+        orig_prob = r.get("original_probability", r["probability"])
+        dom_fee   = r.get("dominant_fee", "a cheaper category")
+        reason = (
+            f'<strong>Data Insufficient</strong> — '
+            f'Fee Category <strong>{dom_fee}</strong> of the same branch/campus already shows '
+            f'<strong>{r["probability"]:.0f}%</strong> probability (higher than this category\'s '
+            f'raw <strong>{orig_prob:.0f}%</strong>). '
+            f'Probability shown here is adjusted to match — prefer Cat {dom_fee} if possible. '
+            f'Submit more data to improve this estimate.'
+        )
+    else:
+        reason = recommendation_reason(r)
+
     branch = escape(r["branch"])
     campus = escape(r["campus"])
     sd_val = r.get("std_dev", 0)
@@ -770,6 +797,19 @@ def result_row_html(r, rank, kind):
     else:
         spread_chip = ""
 
+    # ── Original probability chip (only for data-insufficient rows) ───────
+    if r.get("data_insufficient"):
+        orig_prob = r.get("original_probability", r["probability"])
+        orig_chip = (
+            '<div class="chip warn">'
+            '<span class="chip-label">Raw Prob</span>'
+            f'<span class="chip-value">{orig_prob:.0f}%</span>'
+            '<span class="chip-sub">before adjust</span>'
+            '</div>'
+        )
+    else:
+        orig_chip = ""
+
     true_max = r.get("true_max", r["closing_rank"])
     prob_bar_html = prob_bar(r["probability"], kind)
     badge_label = badge_text[kind]
@@ -780,6 +820,7 @@ def result_row_html(r, rank, kind):
         f'<div class="result-topline">'
         f'<span class="result-branch">{branch}</span>'
         f'{badge_html}'
+        f'{insuff_badge}'
         f'</div>'
         f'<div class="chip-row">'
         f'<div class="chip"><span class="chip-label">Campus</span><span class="chip-value">{campus}</span></div>'
@@ -787,6 +828,7 @@ def result_row_html(r, rank, kind):
         f'<div class="chip"><span class="chip-label">Cutoff Rank</span><span class="chip-value">{r["closing_rank"]:,}</span><span class="chip-sub">90th pct &#183; true max {true_max:,}</span></div>'
         f'<div class="chip {buf_class}"><span class="chip-label">Rank Margin</span><span class="chip-value">{margin_label}</span><span class="chip-sub">{margin_sub}</span></div>'
         f'<div class="chip {conf_class}"><span class="chip-label">Confidence</span><span class="chip-value">{conf_label}</span><span class="chip-sub">{r["responses"]} responses</span></div>'
+        f'{orig_chip}'
         f'{spread_chip}'
         f'</div>'
         f'<div class="result-note">{reason}</div>'

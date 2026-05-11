@@ -73,7 +73,6 @@ def calculate_probability(user_rank, closing_rank, responses):
     else:
         uncertainty_penalty = 6
 
-    # Large buffer stays safe even with small sample
     if rank_buffer >= 5000 or buffer_ratio >= 0.25:
         uncertainty_penalty = min(uncertainty_penalty, 3)
 
@@ -114,14 +113,9 @@ def get_emoji_for_probability(probability):
 
 # =====================================================
 # BRANCH PRIORITY
-# Reflects real-world preference and placement value:
-#   CSE Core > AIML > DS > Cybersecurity > Business Systems
-#   > Robotics > IoT > CPS > IT > ECE > ECM > others
-# Lower number = higher priority (better branch)
 # =====================================================
 
 BRANCH_PRIORITY_MAP = {
-    # ── CSE family ──────────────────────────────────
     "cse core":             0,
     "cse aiml":             1,
     "cse ds":               2,
@@ -130,69 +124,50 @@ BRANCH_PRIORITY_MAP = {
     "cse robotics":         5,
     "cse iot":              6,
     "cse cps":              7,
-
-    # ── IT ──────────────────────────────────────────
     "it core":              8,
-
-    # ── ECE family ──────────────────────────────────
     "ece core":             9,
     "ecm":                  10,
     "ecse":                 10,
-
-    # ── EEE ─────────────────────────────────────────
     "electrical":           11,
     "electrical vlsi":      11,
-
-    # ── Mechanical family ───────────────────────────
     "mechatronics":         12,
     "mechanical":           13,
     "mechanical ev":        13,
-
-    # ── Others ──────────────────────────────────────
     "civil":                14,
     "chemical":             15,
     "biotechnology":        16,
 }
 
-# How many score points a branch priority step is worth.
-# Keeps branch preference meaningful without completely overriding probability.
-BRANCH_SCORE_WEIGHT = 3   # points per priority step
+BRANCH_SCORE_WEIGHT = 3
 
 
 def get_branch_priority(branch):
-    """Return numeric priority (lower = better). Unknown branches go last."""
     return BRANCH_PRIORITY_MAP.get(str(branch).lower(), 99)
 
 
 def get_branch_bonus(branch):
-    """
-    Score bonus based on branch desirability.
-    CSE Core gets the full 48 pts, each step down loses BRANCH_SCORE_WEIGHT.
-    """
     priority = get_branch_priority(branch)
     if priority == 99:
-        return -10   # unknown / niche branch
-    max_priority = max(BRANCH_PRIORITY_MAP.values())  # 16
+        return -10
+    max_priority = max(BRANCH_PRIORITY_MAP.values())
     return (max_priority - priority) * BRANCH_SCORE_WEIGHT
 
 
 # =====================================================
 # CAMPUS PRIORITY
-# Vellore is clearly preferred over Chennai.
-# AP and Bhopal are deprioritised significantly.
 # =====================================================
 
 CAMPUS_TIERS = {
-    "Vellore":   0,   # Tier-0: first choice
-    "Chennai":   1,   # Tier-1: solid second
+    "Vellore":   0,
+    "Chennai":   1,
     "Amaravati": 3,
     "Ap":        3,
     "Bhopal":    5,
 }
 
 CAMPUS_BONUSES = {
-    "Vellore":   10,  # Strong preference
-    "Chennai":    4,  # Decent but clearly behind Vellore
+    "Vellore":   10,
+    "Chennai":    4,
     "Amaravati": -3,
     "Ap":        -3,
     "Bhopal":    -10,
@@ -204,7 +179,6 @@ def get_campus_tier(campus):
 
 
 def get_campus_priority(campus):
-    """Sort tiebreak: Vellore before Chennai."""
     return {"Vellore": 0, "Chennai": 1}.get(campus, 10)
 
 
@@ -214,12 +188,10 @@ def get_campus_bonus(campus):
 
 # =====================================================
 # FEE PRIORITY
-# Lower fee category = cheaper = better by default.
-# BUT: the scoring weight is kept small so a much
-# better branch can still outrank a lower-fee option.
 # =====================================================
 
-FEE_SCORE_WEIGHT = 2   # points per category step saved
+FEE_SCORE_WEIGHT = 2
+
 
 def get_fee_priority(fee):
     try:
@@ -229,12 +201,6 @@ def get_fee_priority(fee):
 
 
 def get_fee_bonus(fee):
-    """
-    Cheap fee gives a small bonus.
-    Cat 1 → +8 pts, Cat 5 → 0 pts.
-    Deliberately smaller than branch bonus so
-    "Cat 3 Core" can still beat "Cat 1 IoT".
-    """
     priority = get_fee_priority(fee)
     if priority == 99:
         return 0
@@ -244,17 +210,6 @@ def get_fee_bonus(fee):
 
 # =====================================================
 # RECOMMENDATION SCORE
-#
-# Formula (all additive):
-#   probability          (0–98,  primary driver)
-#   + branch_bonus       (0–48,  prestige/placement)
-#   + campus_bonus       (-15–6, campus quality)
-#   + fee_bonus          (0–8,   affordability nudge)
-#   + confidence_bonus   (0–7,   data quality nudge)
-#
-# Branch weight > fee weight means:
-#   CSE Core Cat-3 will usually beat CSE IoT Cat-1
-#   when probability is similar.
 # =====================================================
 
 def calculate_recommendation_score(probability, responses, fee, campus, branch):
@@ -274,8 +229,77 @@ def calculate_recommendation_score(probability, responses, fee, campus, branch):
 # =====================================================
 
 def get_chance_priority(chance):
-    # Order: Dream (Reach) → Moderate (Backup) → Safe → Very Unlikely
     return {"Dream": 0, "Moderate": 1, "Safe": 2, "Very Unlikely": 3}.get(chance, 9)
+
+
+# =====================================================
+# FEE-CATEGORY DOMINANCE FLAGGING
+#
+# For each (campus, branch) group, sort by fee ascending.
+# Track the best probability seen so far among cheaper
+# categories. If a more-expensive row has a LOWER
+# probability than a cheaper one, it is "dominated":
+#
+#   → probability is overridden to match the dominant
+#     (cheaper) option so it lands in the same chance
+#     bucket, not a misleadingly lower one.
+#   → data_insufficient = True  (UI shows a badge)
+#   → dominant_fee records which cheaper cat dominates
+#   → original_probability / original_closing_rank
+#     are preserved so the UI can show them as a note.
+#
+# A row with HIGHER probability than all cheaper options
+# is NOT dominated — it genuinely adds information.
+# =====================================================
+
+def flag_dominated_fee_categories(recommendations):
+    """
+    Mark dominated fee categories in-place; nothing is removed.
+
+    A row is dominated when a cheaper fee category for the
+    same (campus, branch) already achieves >= probability.
+    Dominated rows get their probability/chance corrected to
+    the dominant value and are flagged with data_insufficient=True.
+    """
+    from collections import defaultdict
+    groups = defaultdict(list)
+    for r in recommendations:
+        groups[(r["campus"], r["branch"])].append(r)
+
+    result = []
+    for (campus, branch), rows in groups.items():
+        # Sort cheapest first so we can do a single forward pass
+        rows_by_fee = sorted(rows, key=lambda x: x["fee_priority"])
+
+        best_prob = -1
+        best_fee  = None
+
+        for row in rows_by_fee:
+            if row["probability"] >= best_prob:
+                # Not dominated — this row is the new best for this campus+branch
+                row["data_insufficient"]   = False
+                row["dominant_fee"]        = None
+                best_prob = row["probability"]
+                best_fee  = row["fee"]
+            else:
+                # Dominated: a cheaper cat already beats this probability.
+                # Store the original values for display, then override.
+                row["data_insufficient"]      = True
+                row["dominant_fee"]           = best_fee
+                row["original_probability"]   = row["probability"]
+                row["original_closing_rank"]  = row["closing_rank"]
+                # Override so the card shows the same chance as the dominant cat
+                row["probability"]            = best_prob
+                row["chance"]                 = get_chance_category(best_prob)
+                row["color"]                  = get_chance_color(row["chance"])
+                row["emoji"]                  = get_emoji_for_probability(best_prob)
+                row["recommendation_score"]   = calculate_recommendation_score(
+                    best_prob, row["responses"], row["fee"], campus, branch
+                )
+
+            result.append(row)
+
+    return result
 
 
 # =====================================================
@@ -285,17 +309,8 @@ def get_chance_priority(chance):
 def recommend(user_rank, sort_by="recommended"):
     """
     Generate ranked recommendations for a given VITEEE rank.
-
-    Default "recommended" sort:
-      1. Chance category (Safe → Moderate → Dream → Unlikely)
-      2. Campus tier
-      3. Branch priority  ← AIML before IoT, etc.
-      4. Fee priority     ← cheaper preferred when branch is equal
-      5. Campus tiebreaker (Vellore > Chennai within same tier)
-      6. Probability descending
-      7. Responses descending (more data = more reliable)
-      8. Recommendation score descending
-      9. Branch name (alphabetic stability)
+    Fee categories dominated by a cheaper option are shown
+    with matched probability and flagged as data_insufficient.
     """
     recommendations = []
 
@@ -304,14 +319,14 @@ def recommend(user_rank, sort_by="recommended"):
         closing_rank = data["closing_rank"]
         responses    = data["responses"]
 
-        probability         = calculate_probability(user_rank, closing_rank, responses)
-        rank_difference     = closing_rank - user_rank
-        chance              = get_chance_category(probability)
-        confidence          = get_confidence(responses)
-        confidence_pct      = get_confidence_percentage(responses)
-        campus_tier         = get_campus_tier(campus)
-        campus_priority     = get_campus_priority(campus)
-        branch_priority     = get_branch_priority(branch)
+        probability          = calculate_probability(user_rank, closing_rank, responses)
+        rank_difference      = closing_rank - user_rank
+        chance               = get_chance_category(probability)
+        confidence           = get_confidence(responses)
+        confidence_pct       = get_confidence_percentage(responses)
+        campus_tier          = get_campus_tier(campus)
+        campus_priority      = get_campus_priority(campus)
+        branch_priority      = get_branch_priority(branch)
         recommendation_score = calculate_recommendation_score(
             probability, responses, fee, campus, branch
         )
@@ -334,29 +349,26 @@ def recommend(user_rank, sort_by="recommended"):
             "branch_priority":      branch_priority,
             "emoji":                get_emoji_for_probability(probability),
             "color":                get_chance_color(chance),
+            # defaults — overwritten by flag_dominated_fee_categories
+            "data_insufficient":    False,
+            "dominant_fee":         None,
         })
 
-    # ── Sort keys ──────────────────────────────────────────────────────────
+    # ── Flag dominated fee categories ──────────────────────────────────────
+    recommendations = flag_dominated_fee_categories(recommendations)
 
-    # Recommended sort order (outermost → innermost):
-    #   fee → branch → campus (Vellore > Chennai) → probability
-    #
-    # Produces:
-    #   Vellore Cat1 Core → Chennai Cat1 Core
-    #   → Vellore Cat1 AIML → Chennai Cat1 AIML → ...
-    #   → Vellore Cat2 Core → Chennai Cat2 Core → ...
-    #   AP / Bhopal only appear after all Vellore+Chennai rows
+    # ── Sort keys ──────────────────────────────────────────────────────────
     sort_keys = {
         "recommended": lambda x: (
-            x["campus_tier"],                                  # 1. Vellore(0) before Chennai(1) before AP/Bhopal(3/5)
-            get_chance_priority(x["chance"]),                  # 2. Dream → Moderate → Safe → Very Unlikely
-            x["fee_priority"],                                 # 3. Cat1 → Cat2 → Cat3 ...
-            x["branch_priority"],                              # 4. Core > AIML > DS > IoT ...
-            x["campus_priority"],                              # 5. Fine-grain tiebreak within same tier
-            -x["probability"],                                 # 6. Higher probability first
-            -x["responses"],                                   # 7. More data first
-            -x["recommendation_score"],                        # 8. Composite score
-            x["branch"],                                       # 9. Alphabetic stability
+            x["campus_tier"],
+            get_chance_priority(x["chance"]),
+            x["fee_priority"],
+            x["branch_priority"],
+            x["campus_priority"],
+            -x["probability"],
+            -x["responses"],
+            -x["recommendation_score"],
+            x["branch"],
         ),
         "probability": lambda x: (
             x["campus_tier"],
@@ -399,9 +411,9 @@ def recommend(user_rank, sort_by="recommended"):
             -x["probability"],
         ),
         "fee": lambda x: (
-            x["fee_priority"],          # cheapest first
+            x["fee_priority"],
             x["campus_tier"],
-            x["branch_priority"],       # within same fee, better branch first
+            x["branch_priority"],
             x["campus_priority"],
             -x["probability"],
             -x["responses"],
