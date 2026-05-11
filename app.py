@@ -144,6 +144,7 @@ THEMES = {
 THEMES["Dark"] = THEMES["Dark (Beta)"]
 theme = THEMES["Dark" if theme_mode == "Dark (Beta)" else theme_mode]
 
+
 # =====================================================
 # SESSION STATE — report tracking
 # =====================================================
@@ -244,7 +245,11 @@ st.markdown(f"""
         color: #ffffff !important;
         font-weight: 700;
     }}
-    [data-testid="stSidebar"] button[kind="primary"] span {{ color: #ffffff !important; }}
+
+    [data-testid="stSidebar"] button[kind="primary"],
+    [data-testid="stSidebar"] button[kind="primary"] * {{
+        color: #ffffff !important;
+    }}
 
     /* ── Form controls ── */
     [data-baseweb="input"],
@@ -767,6 +772,7 @@ st.markdown(f"""
         .admin-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
         .admin-report-row {{ grid-template-columns: 1fr; }}
     }}
+    
 </style>
 """, unsafe_allow_html=True)
 
