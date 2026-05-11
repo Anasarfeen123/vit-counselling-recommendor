@@ -1698,47 +1698,7 @@ if st.session_state.get("_pred_ready"):
             unsafe_allow_html=True,
         )
 
-        # ── ✅ Primary / Safe (always shown) ──────────────────────────────
-        section_header("✅", "Primary picks — strong rank fit", len(safe_list))
-        if safe_list:
-            st.markdown(
-                '<div class="context-banner safe">Your rank sits comfortably inside these cutoffs. Prioritise by campus preference and fee category.</div>',
-                unsafe_allow_html=True,
-            )
-            for r in safe_list[:results_limit]:
-                render_result_with_report(r, _rank, "safe")
-        else:
-            st.markdown(
-                '<div class="empty-state">'
-                '<span class="empty-state-icon">📭</span>'
-                '<div class="empty-state-title">No primary picks for your rank with these filters</div>'
-                '<div class="empty-state-sub">Your rank may be outside the observed cutoffs for the selected programs. '
-                "Try expanding your campus or branch selection, or choose higher fee categories.</div>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-
-        # ── ⚡ Backup / Moderate (always shown) ───────────────────────────
-        section_header("⚡", "Backup picks — possible but tighter", len(moderate_list))
-        if moderate_list:
-            st.markdown(
-                '<div class="context-banner moderate">These are within reach but have a narrow buffer, high spread, or limited data. Good backups.</div>',
-                unsafe_allow_html=True,
-            )
-            for r in moderate_list[:results_limit]:
-                render_result_with_report(r, _rank, "moderate")
-        else:
-            st.markdown(
-                '<div class="empty-state">'
-                '<span class="empty-state-icon">📋</span>'
-                '<div class="empty-state-title">No backup options for these filters</div>'
-                '<div class="empty-state-sub">Either your rank is very strong (so everything is already Primary!), '
-                "or try expanding your filters to surface more options.</div>"
-                "</div>",
-                unsafe_allow_html=True,
-            )
-
-        # ── 🔥 Reach / Dream (always shown) ──────────────────────────────
+        # ── 🔥 Reach / Dream (always shown first) ──────────────────────────
         section_header("🔥", "Reach picks — possible but risky", len(dream_list))
         if dream_list:
             st.markdown(
@@ -1750,18 +1710,53 @@ if st.session_state.get("_pred_ready"):
         else:
             st.markdown(
                 '<div class="empty-state">'
-                '<span class="empty-state-icon">🎯</span>'
-                '<div class="empty-state-title">No reach options here</div>'
-                '<div class="empty-state-sub">Your rank is safely within cutoffs for all filtered programs — nothing is a stretch pick!</div>'
+                "<strong>No reach options</strong><br>"
+                "Your rank is safely within cutoffs for all filtered programs — nothing is a stretch pick!"
                 "</div>",
                 unsafe_allow_html=True,
             )
 
-        # ── ⛔ Not recommended / Unlikely (always shown) ──────────────────
-        section_header("⛔", "Not recommended — far outside cutoff", len(unlikely_list))
+        # ── ⚡ Backup / Moderate (always shown second) ───────────────────────
+        section_header("⚡", "Backup picks — possible but tighter", len(moderate_list))
+        if moderate_list:
+            st.markdown(
+                '<div class="context-banner moderate">These are within reach but have a narrow buffer, high spread, or limited data. Good backups.</div>',
+                unsafe_allow_html=True,
+            )
+            for r in moderate_list[:results_limit]:
+                render_result_with_report(r, _rank, "moderate")
+        else:
+            st.markdown(
+                '<div class="empty-state">'
+                "<strong>No backup options</strong><br>"
+                "Either your rank is very strong (everything is already Primary!), or try expanding your filters."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        # ── ✅ Primary / Safe (always shown third) ──────────────────────────
+        section_header("✅", "Primary picks — strong rank fit", len(safe_list))
+        if safe_list:
+            st.markdown(
+                '<div class="context-banner safe">Your rank sits comfortably inside these cutoffs. Prioritise by campus preference and fee category.</div>',
+                unsafe_allow_html=True,
+            )
+            for r in safe_list[:results_limit]:
+                render_result_with_report(r, _rank, "safe")
+        else:
+            st.markdown(
+                '<div class="empty-state">'
+                "<strong>No primary picks for this rank</strong><br>"
+                "Your rank may be outside the cutoffs for the selected programs. Try expanding campus or branch filters."
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        # ── ⛔ Impossible / Unlikely (always shown last) ─────────────────────
+        section_header("⛔", "Impossible — far outside cutoff", len(unlikely_list))
         if unlikely_list:
             st.markdown(
-                '<div class="context-banner dream">These match your filters but are well outside the observed cutoff. Listed for awareness only — not worth applying.</div>',
+                '<div class="context-banner dream">These are well outside the observed cutoff. Listed for awareness only — not worth applying.</div>',
                 unsafe_allow_html=True,
             )
             _show_unlikely = unlikely_list[: min(results_limit, 5)]
@@ -1769,15 +1764,13 @@ if st.session_state.get("_pred_ready"):
                 render_result_with_report(r, _rank, "unlikely")
             if len(unlikely_list) > len(_show_unlikely):
                 st.caption(
-                    f"Showing {len(_show_unlikely)} of {len(unlikely_list)} not-recommended options. "
-                    "Expand your filters or raise the category limit to see more."
+                    f"Showing {len(_show_unlikely)} of {len(unlikely_list)} — expand filters or raise the limit to see more."
                 )
         else:
             st.markdown(
                 '<div class="empty-state">'
-                '<span class="empty-state-icon">✨</span>'
-                '<div class="empty-state-title">Nothing far out of range</div>'
-                '<div class="empty-state-sub">No programs are well outside your reach for the current filters. Great rank!</div>'
+                "<strong>Nothing impossible here</strong><br>"
+                "No programs are well outside your reach for the current filters."
                 "</div>",
                 unsafe_allow_html=True,
             )
