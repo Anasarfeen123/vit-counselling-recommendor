@@ -234,22 +234,6 @@ def get_chance_priority(chance):
 
 # =====================================================
 # FEE-CATEGORY DOMINANCE FLAGGING
-#
-# For each (campus, branch) group, sort by fee ascending.
-# Track the best probability seen so far among cheaper
-# categories. If a more-expensive row has a LOWER
-# probability than a cheaper one, it is "dominated":
-#
-#   → probability is overridden to match the dominant
-#     (cheaper) option so it lands in the same chance
-#     bucket, not a misleadingly lower one.
-#   → data_insufficient = True  (UI shows a badge)
-#   → dominant_fee records which cheaper cat dominates
-#   → original_probability / original_closing_rank
-#     are preserved so the UI can show them as a note.
-#
-# A row with HIGHER probability than all cheaper options
-# is NOT dominated — it genuinely adds information.
 # =====================================================
 
 def flag_dominated_fee_categories(recommendations):
@@ -268,7 +252,6 @@ def flag_dominated_fee_categories(recommendations):
 
     result = []
     for (campus, branch), rows in groups.items():
-        # Sort cheapest first so we can do a single forward pass
         rows_by_fee = sorted(rows, key=lambda x: x["fee_priority"])
 
         best_prob = -1
@@ -276,19 +259,15 @@ def flag_dominated_fee_categories(recommendations):
 
         for row in rows_by_fee:
             if row["probability"] >= best_prob:
-                # Not dominated — this row is the new best for this campus+branch
                 row["data_insufficient"]   = False
                 row["dominant_fee"]        = None
                 best_prob = row["probability"]
                 best_fee  = row["fee"]
             else:
-                # Dominated: a cheaper cat already beats this probability.
-                # Store the original values for display, then override.
                 row["data_insufficient"]      = True
                 row["dominant_fee"]           = best_fee
                 row["original_probability"]   = row["probability"]
                 row["original_closing_rank"]  = row["closing_rank"]
-                # Override so the card shows the same chance as the dominant cat
                 row["probability"]            = best_prob
                 row["chance"]                 = get_chance_category(best_prob)
                 row["color"]                  = get_chance_color(row["chance"])
@@ -309,14 +288,16 @@ def flag_dominated_fee_categories(recommendations):
 def recommend(user_rank, sort_by="recommended"):
     """
     Generate ranked recommendations for a given VITEEE rank.
-    Fee categories dominated by a cheaper option are shown
-    with matched probability and flagged as data_insufficient.
+    Cutoff stats (std_dev, true_max) are passed through from the
+    cutoffs dict so the UI can display them correctly.
     """
     recommendations = []
 
     for key, data in cutoffs.items():
         campus, branch, fee = key
         closing_rank = data["closing_rank"]
+        true_max     = data.get("true_max", closing_rank)   # ← real max rank
+        std_dev      = data.get("std_dev", 0)               # ← rank spread
         responses    = data["responses"]
 
         probability          = calculate_probability(user_rank, closing_rank, responses)
@@ -336,6 +317,8 @@ def recommend(user_rank, sort_by="recommended"):
             "branch":               branch,
             "fee":                  fee,
             "closing_rank":         closing_rank,
+            "true_max":             true_max,        # ← now always populated
+            "std_dev":              std_dev,         # ← now always populated
             "rank_difference":      rank_difference,
             "responses":            responses,
             "confidence":           confidence,

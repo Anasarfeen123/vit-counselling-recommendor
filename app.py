@@ -26,7 +26,14 @@ st.set_page_config(
 theme_mode = st.sidebar.segmented_control(
     "Theme", ["Light", "Dark (Beta)"], default="Light", key="theme_mode",
 )
-
+REPORT_TYPE_META = {
+    "wrong_cutoff": {"label": "Wrong cutoff",  "color": "#f59e0b"},
+    "got_allotted": {"label": "Got allotted",  "color": "#10b981"},
+    "not_allotted": {"label": "Not allotted",  "color": "#ef4444"},
+    "prob_high":    {"label": "Prob too high", "color": "#6366f1"},
+    "prob_low":     {"label": "Prob too low",  "color": "#ec4899"},
+    "other":        {"label": "Other",         "color": "#64748b"},
+}
 THEMES = {
     "Light": {
         "bg": "#f0f4fa",
@@ -1160,7 +1167,6 @@ def render_result_with_report(r, rank, kind):
             if st.button("✅ Submit Report", key=f"report_submit_{card_key}",
                          type="primary", disabled=submit_disabled):
                 st.session_state.report_text[card_key] = reason_text
-                full_reason = f"[{selected_type}] {reason_text}".strip()
                 ok = submit_report(
                     user_rank=rank,
                     campus=r["campus"],
@@ -1168,7 +1174,8 @@ def render_result_with_report(r, rank, kind):
                     fee=r["fee"],
                     probability=r["probability"],
                     chance=r["chance"],
-                    reason_text=full_reason,
+                    report_type=selected_type,   # ← separate column in DB
+                    reason_text=reason_text,      # ← clean, no [tag] prefix
                 )
                 st.session_state.report_submitted[card_key] = True
                 st.session_state.report_open[card_key] = False
@@ -1312,10 +1319,16 @@ st.markdown("---")
 st.markdown('<div class="section-heading">📊 Dataset statistics</div>', unsafe_allow_html=True)
 
 col1, col2, col3, col4 = st.columns(4)
-with col1: st.metric("Total responses",   len(master_df))
-with col2: st.metric("Best rank",         f"{int(master_df['Rank'].min()):,}")
-with col3: st.metric("Worst rank",        f"{int(master_df['Rank'].max()):,}")
-with col4: st.metric("Unique variations", len(master_df[["Campus", "Branch", "Fee"]].drop_duplicates()))
+if master_df.empty:
+    with col1: st.metric("Total responses",   0)
+    with col2: st.metric("Best rank",         "—")
+    with col3: st.metric("Worst rank",        "—")
+    with col4: st.metric("Unique variations", 0)
+else:
+    with col1: st.metric("Total responses",   len(master_df))
+    with col2: st.metric("Best rank",         f"{int(master_df['Rank'].min()):,}")
+    with col3: st.metric("Worst rank",        f"{int(master_df['Rank'].max()):,}")
+    with col4: st.metric("Unique variations", len(master_df[["Campus", "Branch", "Fee"]].drop_duplicates()))
 
 CHART_THEME = dict(
     paper_bgcolor="rgba(0,0,0,0)",
@@ -1680,6 +1693,8 @@ if query_params.get("admin") == "1":
                                     background:{cc}22;color:{cc};
                                     border:1px solid {cc}55;
                                 ">{chance_val}</span>
+                                <!-- Report Type badge -->
+                                {report_type_badge}
                                 <span style="font-size:0.75rem;color:var(--vit-muted);">
                                     Prob: {row.get("Predicted Probability (%)","—")}%
                                 </span>

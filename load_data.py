@@ -1,166 +1,71 @@
-import streamlit as st
+"""
+load_data.py — Data loading, normalisation and cutoff computation.
+
+Storage flow
+------------
+1. On first start: seed Excel → Supabase  (idempotent, runs once via cache)
+2. On every start : sync Google Form responses → Supabase  (upsert, safe to re-run)
+3. master_df      : built from Supabase (single source of truth)
+4. cutoffs        : 90th-percentile closing rank + true_max + std_dev per group
+
+Public API (imported by app.py / recommender.py)
+-------------------------------------------------
+  master_df          — pd.DataFrame  (Rank, Campus, Branch, Fee, source)
+  cutoffs            — dict  {(campus, branch, fee): {closing_rank, true_max, std_dev, responses}}
+  submit_report(...) — bool
+  get_reports()      — pd.DataFrame | None
+"""
+
+import re
+import statistics
+from collections import defaultdict
+
 import gspread
 import pandas as pd
-import re
-from datetime import datetime
+import streamlit as st
+from oauth2client.service_account import ServiceAccountCredentials
 
-from oauth2client.service_account import (
-    ServiceAccountCredentials
-)
+import database as db
 
 # =====================================================
-# GOOGLE SHEETS CONNECTION
+# GOOGLE SHEETS CONNECTION  (form-response ingestion)
 # =====================================================
 
-scope = [
+_SCOPE = [
     "https://spreadsheets.google.com/feeds",
     "https://www.googleapis.com/auth/drive",
 ]
 
-# =====================================================
-# TRY STREAMLIT SECRETS FIRST
-# =====================================================
-
 try:
-
-    creds_dict = dict(
-        st.secrets["gcp_service_account"]
+    _creds = ServiceAccountCredentials.from_json_keyfile_dict(
+        dict(st.secrets["gcp_service_account"]), _SCOPE
     )
-
-    creds = (
-        ServiceAccountCredentials
-        .from_json_keyfile_dict(
-            creds_dict,
-            scope
-        )
-    )
-
-    print("✅ Using Streamlit secrets")
-
-# =====================================================
-# FALLBACK TO LOCAL credentials.json
-# =====================================================
-
+    print("[load] ✅ Google auth via Streamlit secrets")
 except Exception:
-
-    creds = (
-        ServiceAccountCredentials
-        .from_json_keyfile_name(
-            "credentials.json",
-            scope
-        )
+    _creds = ServiceAccountCredentials.from_json_keyfile_name(
+        "credentials.json", _SCOPE
     )
+    print("[load] ✅ Google auth via credentials.json")
 
-    print("✅ Using local credentials.json")
-
-# =====================================================
-# AUTHORIZE
-# =====================================================
-
-client = gspread.authorize(creds)
+_gs_client = gspread.authorize(_creds)
 
 SPREADSHEET_URL = (
     "https://docs.google.com/spreadsheets/d/"
     "1IOKcDcfUXporFN4VAqh6G1SYuGpCxZo5iCnraVePVsY/edit?usp=sharing"
 )
 
-sheet = client.open_by_url(SPREADSHEET_URL).sheet1
-
 # =====================================================
-# LOAD LIVE GOOGLE FORM DATA
+# BRANCH NORMALISATION
 # =====================================================
 
-live_data = sheet.get_all_records()
-
-live_df = pd.DataFrame(live_data)
-
-# =====================================================
-# RENAME COLUMNS
-# =====================================================
-
-live_df = live_df.rename(
-    columns={
-        "VITEEE Rank": "Rank",
-        "Campus": "Campus",
-        "Branch": "Branch",
-        "Fee Category": "Fee",
-    }
-)
-
-# Keep only useful columns
-live_df = live_df[
-    [
-        "Rank",
-        "Campus",
-        "Branch",
-        "Fee"
-    ]
-]
-
-# =====================================================
-# CLEAN RANK
-# =====================================================
-
-live_df["Rank"] = pd.to_numeric(
-    live_df["Rank"],
-    errors="coerce"
-)
-
-# =====================================================
-# CLEAN FEE CATEGORY
-# =====================================================
-
-live_df["Fee"] = (
-    live_df["Fee"]
-    .astype(str)
-    .str.extract(r"(\d+)")
-)
-
-live_df["Fee"] = pd.to_numeric(
-    live_df["Fee"],
-    errors="coerce"
-)
-
-# Remove invalid rows
-live_df = live_df.dropna()
-
-# Convert to int
-live_df["Rank"] = live_df["Rank"].astype(int)
-
-live_df["Fee"] = live_df["Fee"].astype(int)
-
-# =====================================================
-# NORMALIZE BRANCHES
-# =====================================================
-
-def normalize_branch(branch):
-
+def normalize_branch(branch: str) -> str:
     branch = str(branch).lower().strip()
-
-    # Remove extra spaces
     branch = " ".join(branch.split())
-
-    # Remove special chars
-    branch_key = re.sub(
-        r"[^a-z0-9]+",
-        " ",
-        branch
-    )
-
-    branch_key = " ".join(
-        branch_key.split()
-    )
-
-    tokens = set(
-        branch_key.split()
-    )
+    branch_key = re.sub(r"[^a-z0-9]+", " ", branch).strip()
+    tokens = set(branch_key.split())
 
     mapping = {
-
-        # =================================================
-        # CSE CORE
-        # =================================================
-
+        # CSE Core
         "cse": "CSE Core",
         "cs": "CSE Core",
         "core": "CSE Core",
@@ -171,11 +76,7 @@ def normalize_branch(branch):
         "btech cse": "CSE Core",
         "computer science": "CSE Core",
         "computer science engineering": "CSE Core",
-
-        # =================================================
         # AIML
-        # =================================================
-
         "cse aiml": "CSE AIML",
         "cse ai ml": "CSE AIML",
         "cse ai/ml": "CSE AIML",
@@ -183,421 +84,321 @@ def normalize_branch(branch):
         "cse ai&ml": "CSE AIML",
         "aiml": "CSE AIML",
         "ai ml": "CSE AIML",
-        "artificial intelligence and machine learning":
-            "CSE AIML",
-
-        # =================================================
-        # DATA SCIENCE
-        # =================================================
-
+        "artificial intelligence and machine learning": "CSE AIML",
+        # Data Science
         "cse ds": "CSE DS",
         "cse data science": "CSE DS",
         "data science": "CSE DS",
         "ds": "CSE DS",
-
-        # =================================================
-        # CYBERSECURITY
-        # =================================================
-
+        # Cybersecurity
         "cse cybersecurity": "CSE Cybersecurity",
         "cybersecurity": "CSE Cybersecurity",
         "cse cyber": "CSE Cybersecurity",
-
-        # =================================================
-        # BUSINESS SYSTEMS
-        # =================================================
-
+        # Business Systems
         "cse business systems": "CSE Business Systems",
         "cse bs": "CSE Business Systems",
-
-        # =================================================
-        # ROBOTICS
-        # =================================================
-
+        # Robotics
         "cse ai robo": "CSE Robotics",
         "robotics": "CSE Robotics",
-
-        # =================================================
-        # IOT
-        # =================================================
-
+        # IoT
         "cse iot": "CSE IoT",
         "iot": "CSE IoT",
-
-        # =================================================
         # CPS
-        # =================================================
-
         "cse cps": "CSE CPS",
         "cps": "CSE CPS",
-
-        # =================================================
         # ECE
-        # =================================================
-
         "ece": "ECE Core",
         "ece core": "ECE Core",
-        "electronics and communication":
-            "ECE Core",
+        "electronics and communication": "ECE Core",
         "ecm": "ECM",
-
-        # =================================================
         # IT
-        # =================================================
-
         "it": "IT Core",
         "it core": "IT Core",
-        "information technology":
-            "IT Core",
-
-        # =================================================
-        # MECHANICAL
-        # =================================================
-
+        "information technology": "IT Core",
+        # Mechanical
         "mechanical": "Mechanical",
         "me": "Mechanical",
         "mech": "Mechanical",
         "mechanical ev": "Mechanical EV",
-
-        # =================================================
-        # MECHATRONICS
-        # =================================================
-
+        # Mechatronics
         "mechatronics": "Mechatronics",
-
-        # =================================================
-        # CIVIL
-        # =================================================
-
+        # Civil
         "civil": "Civil",
         "ce": "Civil",
-
-        # =================================================
-        # ELECTRICAL
-        # =================================================
-
+        # Electrical
         "electrical": "Electrical",
         "eee": "Electrical",
         "ee": "Electrical",
-        "ee vlsi design and technology":
-            "Electrical VLSI",
-
-        # =================================================
-        # CHEMICAL
-        # =================================================
-
+        "ee vlsi design and technology": "Electrical VLSI",
+        # Chemical
         "chemical": "Chemical",
-
-        # =================================================
-        # BIOTECH
-        # =================================================
-
+        # Biotech
         "biotechnology": "Biotechnology",
     }
 
-    # Exact matches
     if branch in mapping:
         return mapping[branch]
-
     if branch_key in mapping:
         return mapping[branch_key]
 
     # Smart CSE detection
-    cse_tokens = {
-        "cse",
-        "cs",
-        "computer"
-    }
-
-    core_tokens = {
-        "core",
-        "science"
-    }
-
-    has_cse_signal = (
-        bool(tokens & cse_tokens)
-        or "computer science" in branch_key
-    )
-
-    has_core_signal = bool(
-        tokens & core_tokens
-    )
-
-    if has_cse_signal and has_core_signal:
-        return "CSE Core"
+    if (tokens & {"cse", "cs", "computer"}) or "computer science" in branch_key:
+        if tokens & {"core", "science"}:
+            return "CSE Core"
 
     return branch.title()
 
 
-live_df["Branch"] = live_df[
-    "Branch"
-].apply(normalize_branch)
-
 # =====================================================
-# NORMALIZE CAMPUS
+# CAMPUS NORMALISATION
 # =====================================================
 
-def normalize_campus(campus):
-
+def normalize_campus(campus: str) -> str:
     campus = str(campus).lower().strip()
-
     mapping = {
-
-        "vellore": "Vellore",
-        "vit vellore": "Vellore",
-
-        "chennai": "Chennai",
-        "vit chennai": "Chennai",
-        "vtc": "Chennai",
-
-        "bhopal": "Bhopal",
-        "vit bhopal": "Bhopal",
-
-        "amaravati": "Amaravati",
-        "ap": "Amaravati",
+        "vellore":       "Vellore",
+        "vit vellore":   "Vellore",
+        "chennai":       "Chennai",
+        "vit chennai":   "Chennai",
+        "vtc":           "Chennai",
+        "bhopal":        "Bhopal",
+        "vit bhopal":    "Bhopal",
+        "amaravati":     "Amaravati",
+        "ap":            "Amaravati",
         "vit amaravati": "Amaravati",
     }
+    return mapping.get(campus, campus.title())
 
-    return mapping.get(
-        campus,
-        campus.title()
-    )
-
-
-live_df["Campus"] = live_df[
-    "Campus"
-].apply(normalize_campus)
 
 # =====================================================
-# VALIDATION
+# VALIDATION HELPERS
 # =====================================================
 
-def validate_fee_category(fee):
-
-    if pd.isna(fee):
+def _valid_fee(fee) -> bool:
+    try:
+        return 1 <= int(fee) <= 5
+    except (TypeError, ValueError):
         return False
 
-    fee_int = int(fee)
 
-    return 1 <= fee_int <= 5
-
-
-def validate_rank(rank):
-
-    if pd.isna(rank):
+def _valid_rank(rank) -> bool:
+    try:
+        return 1 <= int(rank) <= 250_000
+    except (TypeError, ValueError):
         return False
 
-    return 1 <= int(rank) <= 250000
-
-
-live_df = live_df[
-    live_df["Fee"].apply(
-        validate_fee_category
-    )
-]
-
-live_df = live_df[
-    live_df["Rank"].apply(
-        validate_rank
-    )
-]
 
 # =====================================================
-# LOAD HISTORICAL DATASET
+# SEED HISTORICAL DATA  (idempotent, runs once)
 # =====================================================
 
-historical_df = pd.read_excel(
-    "data/VIT Counselling Data ( 2025 ).xlsx"
-)
+@st.cache_resource(show_spinner=False)
+def _seed_historical() -> int:
+    """
+    Load historical Excel data into Supabase.
+    Guarded by cache_resource so it executes only once per server process.
+    Returns the number of records seeded (or existing count if already done).
+    """
+    existing = db.count_records()
+    if existing > 100:
+        print(f"[load] Supabase already has {existing:,} records — skipping seed")
+        return existing
 
-historical_df.columns = [
-    "Rank",
-    "Campus",
-    "Branch",
-    "Fee"
-]
+    print("[load] 🌱 Seeding historical data into Supabase …")
+    hist = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
+    hist.columns = ["Rank", "Campus", "Branch", "Fee"]
+    hist = hist.dropna()
+    hist["Rank"]   = hist["Rank"].astype(int)
+    hist["Fee"]    = hist["Fee"].astype(int)
+    hist["Branch"] = hist["Branch"].apply(normalize_branch)
+    hist["Campus"] = hist["Campus"].apply(normalize_campus)
+    hist = hist.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
 
-historical_df = historical_df.dropna()
+    records = [
+        {
+            "rank":   int(row["Rank"]),
+            "campus": row["Campus"],
+            "branch": row["Branch"],
+            "fee":    int(row["Fee"]),
+            "source": "historical",
+        }
+        for _, row in hist.iterrows()
+    ]
+    ok = db.upsert_records(records)
+    n  = len(records) if ok else 0
+    print(f"[load] ✅ Seeded {n:,} historical records")
+    return n
 
-historical_df["Rank"] = (
-    historical_df["Rank"]
-    .astype(int)
-)
-
-historical_df["Fee"] = (
-    historical_df["Fee"]
-    .astype(int)
-)
-
-historical_df["Branch"] = (
-    historical_df["Branch"]
-    .apply(normalize_branch)
-)
-
-historical_df["Campus"] = (
-    historical_df["Campus"]
-    .apply(normalize_campus)
-)
 
 # =====================================================
-# MERGE DATASETS
+# SYNC GOOGLE FORM RESPONSES  (safe to re-run)
 # =====================================================
 
-master_df = pd.concat(
-    [
-        historical_df,
-        live_df
-    ],
-    ignore_index=True
-)
+def _sync_form_responses() -> int:
+    """
+    Pull latest Google Form responses and upsert into Supabase.
+    Returns the number of valid rows sent.
+    """
+    try:
+        sheet    = _gs_client.open_by_url(SPREADSHEET_URL).sheet1
+        raw      = sheet.get_all_records()
+        if not raw:
+            return 0
+
+        df = pd.DataFrame(raw).rename(columns={
+            "VITEEE Rank":  "Rank",
+            "Campus":       "Campus",
+            "Branch":       "Branch",
+            "Fee Category": "Fee",
+        })
+
+        # Keep only the four needed columns (extra form fields ignored)
+        for col in ["Rank", "Campus", "Branch", "Fee"]:
+            if col not in df.columns:
+                print(f"[load] ⚠ Column '{col}' missing from form sheet")
+                return 0
+        df = df[["Rank", "Campus", "Branch", "Fee"]].copy()
+
+        df["Rank"] = pd.to_numeric(df["Rank"], errors="coerce")
+        df["Fee"]  = (
+            df["Fee"].astype(str)
+            .str.extract(r"(\d+)", expand=False)
+        )
+        df["Fee"] = pd.to_numeric(df["Fee"], errors="coerce")
+        df = df.dropna()
+        df["Rank"] = df["Rank"].astype(int)
+        df["Fee"]  = df["Fee"].astype(int)
+        df["Branch"] = df["Branch"].apply(normalize_branch)
+        df["Campus"] = df["Campus"].apply(normalize_campus)
+        df = df[df["Fee"].apply(_valid_fee) & df["Rank"].apply(_valid_rank)]
+        df = df.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
+
+        records = [
+            {
+                "rank":   int(row["Rank"]),
+                "campus": row["Campus"],
+                "branch": row["Branch"],
+                "fee":    int(row["Fee"]),
+                "source": "form",
+            }
+            for _, row in df.iterrows()
+        ]
+        if records:
+            db.upsert_records(records)
+        print(f"[load] 🔄 Synced {len(records)} form responses")
+        return len(records)
+    except Exception as exc:
+        print(f"[load] _sync_form_responses error: {exc}")
+        return 0
+
+
+# =====================================================
+# BUILD MASTER DF  (runs at import time)
+# =====================================================
+
+_seed_historical()
+_sync_form_responses()
+
+_hist = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
+_hist.columns = ["Rank", "Campus", "Branch", "Fee"]
+_hist = _hist.dropna()
+_hist["Rank"]   = _hist["Rank"].astype(int)
+_hist["Fee"]    = _hist["Fee"].astype(int)
+_hist["Branch"] = _hist["Branch"].apply(normalize_branch)
+_hist["Campus"] = _hist["Campus"].apply(normalize_campus)
+_hist["source"] = "historical"
+
+_sb = db.fetch_all_records()
 
 master_df = (
-    master_df
-    .drop_duplicates(
-        subset=[
-            "Rank",
-            "Campus",
-            "Branch",
-            "Fee"
-        ],
-        keep="first"
-    )
-)
-
-master_df = (
-    master_df
-    .sort_values(by="Rank")
+    pd.concat([_hist, _sb], ignore_index=True)
+    .drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"], keep="first")
+    .sort_values("Rank")
     .reset_index(drop=True)
 )
 
-# =====================================================
-# DATA QUALITY REPORT
-# =====================================================
+print(f"[load] ✅ master_df: {len(master_df):,} rows ({len(_hist):,} Excel + {len(_sb):,} Supabase)")
+
+# Safety fallback: if Supabase returned nothing, load directly from Excel
+# so the app stays functional while the DB connection is investigated
+if master_df.empty:
+    print("[load] ⚠ Supabase returned empty — falling back to Excel")
+    _fb = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
+    _fb.columns = ["Rank", "Campus", "Branch", "Fee"]
+    _fb = _fb.dropna()
+    _fb["Rank"]   = _fb["Rank"].astype(int)
+    _fb["Fee"]    = _fb["Fee"].astype(int)
+    _fb["Branch"] = _fb["Branch"].apply(normalize_branch)
+    _fb["Campus"] = _fb["Campus"].apply(normalize_campus)
+    master_df = _fb.sort_values("Rank").reset_index(drop=True)
 
 print(
-    f"✅ Total records loaded: {len(master_df)}"
-)
-
-print(
-    f"📊 Unique combinations: "
-    f"{len(master_df[['Campus', 'Branch', 'Fee']].drop_duplicates())}"
-)
-
-print(
-    f"🏫 Campuses: "
-    f"{', '.join(sorted(master_df['Campus'].unique()))}"
-)
-
-print(
-    f"📚 Branches: "
-    f"{len(master_df['Branch'].unique())}"
+    f"[load] ✅ master_df: {len(master_df):,} rows | "
+    f"{master_df['Campus'].nunique()} campuses | "
+    f"{master_df['Branch'].nunique()} branches"
 )
 
 # =====================================================
-# GENERATE CUTOFF DATABASE
+# BUILD CUTOFFS  (90th-pct + true_max + std_dev)
+# =====================================================
+#
+# closing_rank = 90th-percentile rank for the group
+#                (single outlier at the max doesn't inflate the cutoff)
+# true_max     = actual maximum rank observed (shown as context in UI)
+# std_dev      = standard deviation of observed ranks (volatility signal)
+# responses    = total data points for confidence scoring
 # =====================================================
 
-cutoffs = {}
+_groups: dict[tuple, list[int]] = defaultdict(list)
+for _, _row in master_df.iterrows():
+    _key = (_row["Campus"], _row["Branch"], _row["Fee"])
+    _groups[_key].append(int(_row["Rank"]))
 
-for _, row in master_df.iterrows():
+cutoffs: dict[tuple, dict] = {}
+for _key, _ranks in _groups.items():
+    _n   = len(_ranks)
+    _srt = sorted(_ranks)
+    # 90th-percentile index (clamp to last element)
+    _p90_idx = min(int(_n * 0.9), _n - 1)
+    cutoffs[_key] = {
+        "closing_rank": _srt[_p90_idx],
+        "true_max":     _srt[-1],
+        "std_dev":      int(statistics.stdev(_srt)) if _n >= 2 else 0,
+        "responses":    _n,
+    }
 
-    key = (
-        row["Campus"],
-        row["Branch"],
-        row["Fee"]
+print(
+    f"[load] ✅ cutoffs: {len(cutoffs)} group entries "
+    f"(90th-pct + true_max + std_dev)"
+)
+
+# =====================================================
+# PUBLIC API  (called by app.py)
+# =====================================================
+
+def submit_report(
+    user_rank,
+    campus,
+    branch,
+    fee,
+    probability,
+    chance,
+    report_type,       # ← now a separate param (not buried in reason_text)
+    reason_text="",
+) -> bool:
+    """Persist one user prediction report to Supabase."""
+    return db.insert_report(
+        user_rank=user_rank,
+        campus=campus,
+        branch=branch,
+        fee=fee,
+        probability=probability,
+        chance=chance,
+        report_type=report_type,
+        reason_text=reason_text,
     )
-
-    rank = row["Rank"]
-
-    if key not in cutoffs:
-
-        cutoffs[key] = {
-
-            "closing_rank": rank,
-
-            "responses": 1
-        }
-
-    else:
-
-        cutoffs[key]["closing_rank"] = max(
-            cutoffs[key]["closing_rank"],
-            rank
-        )
-
-        cutoffs[key]["responses"] += 1
-
-
-# =====================================================
-# REPORTS SHEET — submit & fetch
-# =====================================================
-
-REPORTS_SHEET_NAME = "Reports"
-
-
-def _get_or_create_reports_sheet():
-    """Return the Reports worksheet, creating it with headers if missing."""
-    spreadsheet = client.open_by_url(SPREADSHEET_URL)
-    try:
-        ws = spreadsheet.worksheet(REPORTS_SHEET_NAME)
-    except Exception:
-        ws = spreadsheet.add_worksheet(
-            title=REPORTS_SHEET_NAME, rows=1000, cols=10
-        )
-        ws.append_row(
-            [
-                "Timestamp",
-                "User Rank",
-                "Campus",
-                "Branch",
-                "Fee Category",
-                "Predicted Probability (%)",
-                "Predicted Chance",
-                "Reason",
-            ],
-            value_input_option="RAW",
-        )
-    return ws
-
-
-def submit_report(user_rank, campus, branch, fee, probability, chance, reason_text):
-    """Append one report row to the Reports sheet. Returns True on success."""
-    try:
-        ws = _get_or_create_reports_sheet()
-        ws.append_row(
-            [
-                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                int(user_rank),
-                str(campus),
-                str(branch),
-                int(fee),
-                round(float(probability), 1),
-                str(chance),
-                str(reason_text).strip() if reason_text else "(no reason given)",
-            ],
-            value_input_option="RAW",
-        )
-        return True
-    except Exception as e:
-        print(f"❌ submit_report failed: {e}")
-        return False
 
 
 def get_reports():
-    """
-    Fetch all rows from the Reports sheet as a DataFrame.
-    Returns None on error, empty DataFrame if sheet has no data rows.
-    """
-    try:
-        ws = _get_or_create_reports_sheet()
-        records = ws.get_all_records()
-        if not records:
-            return pd.DataFrame(columns=[
-                "Timestamp", "User Rank", "Campus", "Branch",
-                "Fee Category", "Predicted Probability (%)",
-                "Predicted Chance", "Reason",
-            ])
-        return pd.DataFrame(records)
-    except Exception as e:
-        print(f"❌ get_reports failed: {e}")
-        return None
+    """Fetch all reports from Supabase for the admin panel."""
+    return db.fetch_reports()
