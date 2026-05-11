@@ -76,6 +76,13 @@ THEMES = {
         "dream_bg": "#fff1f2",
         "dream_border": "#fda4af",
         "dream_text": "#9f1239",
+        # Report panel colours
+        "report_bg": "#fafafa",
+        "report_border": "#e2e8f0",
+        "report_header_bg": "#f8fafc",
+        "report_success_bg": "#f0fdf4",
+        "report_success_border": "#86efac",
+        "report_success_text": "#15803d",
     },
     "Dark (Beta)": {
         "bg": "#0b1120",
@@ -125,6 +132,13 @@ THEMES = {
         "dream_bg": "#3b0a0a",
         "dream_border": "#dc2626",
         "dream_text": "#fecaca",
+        # Report panel colours
+        "report_bg": "#1a2a40",
+        "report_border": "#2d4060",
+        "report_header_bg": "#172033",
+        "report_success_bg": "#052e16",
+        "report_success_border": "#16a34a",
+        "report_success_text": "#4ade80",
     },
 }
 THEMES["Dark"] = THEMES["Dark (Beta)"]
@@ -135,11 +149,13 @@ theme = THEMES["Dark" if theme_mode == "Dark (Beta)" else theme_mode]
 # =====================================================
 
 if "report_open" not in st.session_state:
-    st.session_state.report_open = {}   # card_key -> bool (panel open?)
+    st.session_state.report_open = {}
 if "report_submitted" not in st.session_state:
-    st.session_state.report_submitted = {}  # card_key -> bool (submitted?)
+    st.session_state.report_submitted = {}
 if "report_text" not in st.session_state:
-    st.session_state.report_text = {}   # card_key -> str
+    st.session_state.report_text = {}
+if "report_type" not in st.session_state:
+    st.session_state.report_type = {}
 
 # =====================================================
 # CSS
@@ -189,6 +205,12 @@ st.markdown(f"""
         --dream-bg: {theme["dream_bg"]};
         --dream-border: {theme["dream_border"]};
         --dream-text: {theme["dream_text"]};
+        --report-bg: {theme["report_bg"]};
+        --report-border: {theme["report_border"]};
+        --report-header-bg: {theme["report_header_bg"]};
+        --report-success-bg: {theme["report_success_bg"]};
+        --report-success-border: {theme["report_success_border"]};
+        --report-success-text: {theme["report_success_text"]};
     }}
 
     /* ── App shell ── */
@@ -524,36 +546,173 @@ st.markdown(f"""
         margin: 6px 0 2px;
     }}
 
-    /* ── Report panel ── */
-    .report-panel-header {{
-        background: var(--vit-chip-warn-bg);
-        border: 1px solid var(--vit-moderate-color);
-        border-radius: 8px 8px 0 0;
-        padding: 0.65rem 1rem;
+    /* ── Report card ── */
+    .report-card {{
+        background: var(--report-bg);
+        border: 1px solid var(--report-border);
+        border-radius: 10px;
+        margin-top: 0.35rem;
+        overflow: hidden;
+    }}
+    .report-card-header {{
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--report-header-bg);
+        border-bottom: 1px solid var(--report-border);
+    }}
+    .report-card-title {{
         font-size: 0.88rem;
-        color: var(--vit-chip-warn-text);
-        margin-top: 0.25rem;
+        font-weight: 700;
+        color: var(--vit-text);
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }}
-    .report-panel-sub {{
-        font-size: 0.82rem;
-        font-weight: 400;
+    .report-card-sub {{
+        font-size: 0.80rem;
         color: var(--vit-muted);
+        font-weight: 400;
     }}
-    .report-panel-footer {{
+    .report-card-body {{
+        padding: 1rem;
+    }}
+    .report-type-grid {{
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        gap: 0.5rem;
+        margin-bottom: 0.9rem;
+    }}
+    .report-type-option {{
+        border: 1.5px solid var(--vit-border);
+        border-radius: 8px;
+        padding: 0.6rem 0.75rem;
+        cursor: pointer;
+        background: var(--vit-surface);
+        text-align: center;
+        transition: all 0.15s;
+    }}
+    .report-type-option.selected {{
+        border-color: var(--vit-primary);
+        background: var(--vit-info-bg);
+    }}
+    .report-type-icon {{ font-size: 1.2rem; display: block; margin-bottom: 2px; }}
+    .report-type-label {{ font-size: 0.75rem; font-weight: 600; color: var(--vit-text); }}
+    .report-hint {{
+        font-size: 0.80rem;
+        color: var(--vit-muted);
+        margin-bottom: 0.65rem;
+        line-height: 1.5;
+    }}
+    .report-footer {{
+        font-size: 0.76rem;
+        color: var(--vit-muted);
+        font-style: italic;
+        margin-top: 0.5rem;
+        padding-top: 0.5rem;
+        border-top: 1px solid var(--report-border);
+    }}
+    .report-success {{
+        background: var(--report-success-bg);
+        border: 1px solid var(--report-success-border);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 0.88rem;
+        color: var(--report-success-text);
+        font-weight: 600;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.35rem;
+    }}
+
+    /* ── Admin dashboard ── */
+    .admin-header {{
+        background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e40af 100%);
+        border-radius: 12px;
+        padding: 1.75rem 2rem;
+        margin-bottom: 1.5rem;
+        display: flex;
+        align-items: center;
+        gap: 1.25rem;
+    }}
+    .admin-header-icon {{
+        width: 56px; height: 56px;
+        background: rgba(255,255,255,0.15);
+        border-radius: 12px;
+        display: flex; align-items: center; justify-content: center;
+        font-size: 1.8rem; flex-shrink: 0;
+        border: 1px solid rgba(255,255,255,0.2);
+    }}
+    .admin-header h2 {{ margin: 0; font-size: 1.5rem; font-weight: 800; color: #ffffff; }}
+    .admin-header p  {{ margin: 0.2rem 0 0; font-size: 0.9rem; color: rgba(255,255,255,0.7); }}
+    .admin-stat-grid {{
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 0.85rem;
+        margin-bottom: 1.5rem;
+    }}
+    .admin-stat-card {{
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-radius: 10px;
+        padding: 1.1rem 1.4rem;
+        box-shadow: var(--vit-shadow);
+    }}
+    .admin-stat-label {{
+        font-size: 0.74rem;
+        color: var(--vit-soft);
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        font-weight: 700;
+        margin-bottom: 6px;
+    }}
+    .admin-stat-value {{
+        font-size: 1.9rem;
+        font-weight: 800;
+        color: var(--vit-primary);
+        line-height: 1;
+        margin-bottom: 4px;
+    }}
+    .admin-stat-sub {{ font-size: 0.82rem; color: var(--vit-muted); }}
+    .admin-report-row {{
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 0.5rem;
+        display: grid;
+        grid-template-columns: 120px 1fr 1fr 100px 1fr;
+        gap: 1rem;
+        align-items: center;
+        box-shadow: var(--vit-shadow);
+    }}
+    .admin-report-meta {{
         font-size: 0.78rem;
         color: var(--vit-muted);
-        padding: 0.3rem 0.1rem 0.5rem;
+    }}
+    .admin-report-branch {{ font-weight: 700; color: var(--vit-text); font-size: 0.95rem; }}
+    .admin-report-campus {{ font-size: 0.82rem; color: var(--vit-muted); margin-top: 2px; }}
+    .admin-report-reason {{
+        font-size: 0.84rem;
+        color: var(--vit-text);
+        line-height: 1.45;
+        background: rgba(100,116,139,0.06);
+        border-radius: 6px;
+        padding: 0.4rem 0.6rem;
+        border-left: 3px solid var(--vit-border);
+    }}
+    .admin-report-reason.no-reason {{
+        color: var(--vit-muted);
         font-style: italic;
     }}
-    .report-submitted-banner {{
-        background: var(--vit-chip-good-bg);
-        border: 1px solid var(--vit-safe-color);
-        border-radius: 8px;
-        padding: 0.65rem 1rem;
-        font-size: 0.88rem;
-        color: var(--vit-chip-good-text);
-        font-weight: 600;
-        margin-top: 0.25rem;
+    .admin-filter-bar {{
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 1.25rem;
     }}
 
     /* ── Streamlit native overrides ── */
@@ -604,6 +763,9 @@ st.markdown(f"""
         }}
         .prob-bar-bg {{ width: 100%; }}
         .prob-label, .score-label, .cutoff-note {{ text-align: left; }}
+        .report-type-grid {{ grid-template-columns: 1fr 1fr; }}
+        .admin-stat-grid {{ grid-template-columns: repeat(2, 1fr); }}
+        .admin-report-row {{ grid-template-columns: 1fr; }}
     }}
 </style>
 """, unsafe_allow_html=True)
@@ -640,11 +802,6 @@ st.markdown("""
     All predictions are based on historical data and statistical models, and <strong>may not reflect actual results</strong>.
     Always verify with official VIT counselling resources before making any final decisions. Use at your own discretion.
 </div>
-<div style="margin-top:1.5rem;text-align:center;">
-    <a href="?admin=1" style="font-size:0.78rem;color:var(--vit-muted);text-decoration:none;opacity:0.55;">
-        🔐 Admin
-    </a>
-</div>
 """, unsafe_allow_html=True)
 
 # =====================================================
@@ -664,7 +821,6 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
-
 sort_option = st.sidebar.selectbox(
     "Sort results by",
     ["Recommended", "Probability", "Fee Category", "Confidence Level", "Number of Responses", "Closing Rank"],
@@ -678,7 +834,6 @@ sort_mapping = {
     "Closing Rank": "closing_rank",
 }
 
-# Add radio for probability order
 prob_order = "desc"
 if sort_option == "Probability":
     prob_order = st.sidebar.radio(
@@ -803,7 +958,6 @@ def recommendation_reason(r):
 
 
 def make_card_key(r):
-    """Unique key for a result card (safe for session state dict key)."""
     return f"{r['campus']}_{r['branch']}_{r['fee']}".replace(" ", "_")
 
 
@@ -818,7 +972,6 @@ def result_row_html(r, rank, kind):
     badge_text = {"safe": "Safe ✓", "moderate": "Moderate", "dream": "Reach", "unlikely": "Very Unlikely"}
     badge_html = f'<span class="badge {badge_map[kind]}">{badge_text[kind]}</span>'
 
-    # ── Data-insufficient badge ────────────────────────────────────────────
     if r.get("data_insufficient"):
         insuff_badge = (
             '<span class="badge" style="'
@@ -834,7 +987,6 @@ def result_row_html(r, rank, kind):
     conf_class = chip_class_from_confidence(r["confidence_pct"])
     buf_class  = chip_class_from_buffer(diff)
 
-    # ── Reason note ───────────────────────────────────────────────────────
     if r.get("data_insufficient"):
         orig_prob = r.get("original_probability", r["probability"])
         dom_fee   = r.get("dominant_fee", "a cheaper category")
@@ -864,7 +1016,6 @@ def result_row_html(r, rank, kind):
     else:
         spread_chip = ""
 
-    # ── Original probability chip (only for data-insufficient rows) ───────
     if r.get("data_insufficient"):
         orig_prob = r.get("original_probability", r["probability"])
         orig_chip = (
@@ -911,56 +1062,99 @@ def result_row_html(r, rank, kind):
     )
 
 
+REPORT_TYPES = [
+    {"key": "wrong_cutoff",  "icon": "📊", "label": "Wrong cutoff",    "hint": "Cutoff rank seems incorrect based on your actual allotment."},
+    {"key": "got_allotted",  "icon": "✅", "label": "Got allotted",    "hint": "You were allotted this branch/campus at your rank."},
+    {"key": "not_allotted",  "icon": "❌", "label": "Not allotted",    "hint": "You did NOT get this despite it showing Safe/Moderate."},
+    {"key": "prob_high",     "icon": "📈", "label": "Prob too high",   "hint": "Admission probability appears inflated."},
+    {"key": "prob_low",      "icon": "📉", "label": "Prob too low",    "hint": "Admission probability appears underestimated."},
+    {"key": "other",         "icon": "💬", "label": "Other",           "hint": "Something else is wrong with this prediction."},
+]
+
+
 def render_result_with_report(r, rank, kind):
-    """Render a result card followed by a working inline report button/panel."""
     card_key = make_card_key(r)
 
-    # ── Card HTML ─────────────────────────────────────────────────────────
     st.markdown(result_row_html(r, rank, kind), unsafe_allow_html=True)
 
-    # ── Already submitted ─────────────────────────────────────────────────
+    # Already submitted
     if st.session_state.report_submitted.get(card_key):
         st.markdown(
-            '<div class="report-submitted-banner">'
-            "✅ Thanks for your feedback — it helps improve the model!"
-            "</div>",
+            '<div class="report-success">'
+            '✅ Thanks for your report — it helps improve the model for everyone!'
+            '</div>',
             unsafe_allow_html=True,
         )
-        st.markdown('<div style="margin-bottom:0.75rem;"></div>', unsafe_allow_html=True)
+        st.markdown('<div style="margin-bottom:0.9rem;"></div>', unsafe_allow_html=True)
         return
 
     is_open = st.session_state.report_open.get(card_key, False)
 
-    # ── Toggle button ─────────────────────────────────────────────────────
-    btn_label = "🚩 Hide report" if is_open else "🚩 Report prediction"
-    if st.button(btn_label, key=f"report_btn_{card_key}",
-                 help="Flag this prediction as inaccurate"):
-        st.session_state.report_open[card_key] = not is_open
-        st.rerun()
+    # Toggle button — subtle styling
+    col_btn, col_pad = st.columns([1, 6])
+    with col_btn:
+        btn_label = "🚩 Hide" if is_open else "🚩 Report"
+        if st.button(btn_label, key=f"report_btn_{card_key}",
+                     help="Flag this prediction as inaccurate or add real-world data"):
+            st.session_state.report_open[card_key] = not is_open
+            st.rerun()
 
-    # ── Inline report panel ───────────────────────────────────────────────
     if is_open:
+        branch_esc = escape(r["branch"])
+        campus_esc = escape(r["campus"])
         st.markdown(
-            '<div class="report-panel-header">'
-            "🚩 <strong>Report an inaccurate prediction</strong>"
-            '<span class="report-panel-sub"> — your feedback improves the model</span>'
-            "</div>",
+            f'<div class="report-card">'
+            f'<div class="report-card-header">'
+            f'<div class="report-card-title">🚩 Report prediction'
+            f'<span class="report-card-sub">— {branch_esc} · {campus_esc} · Fee Cat {r["fee"]}</span>'
+            f'</div>'
+            f'</div>'
+            f'<div class="report-card-body">',
             unsafe_allow_html=True,
         )
 
+        # Issue type selector
+        st.markdown('<div style="font-size:0.82rem;font-weight:700;color:var(--vit-text);margin-bottom:0.5rem;">What\'s wrong with this prediction?</div>', unsafe_allow_html=True)
+        type_cols = st.columns(3)
+        selected_type = st.session_state.report_type.get(card_key, None)
+        for i, rtype in enumerate(REPORT_TYPES):
+            with type_cols[i % 3]:
+                is_selected = selected_type == rtype["key"]
+                btn_style = "primary" if is_selected else "secondary"
+                if st.button(
+                    f"{rtype['icon']} {rtype['label']}",
+                    key=f"rtype_{card_key}_{rtype['key']}",
+                    type=btn_style,
+                    use_container_width=True,
+                ):
+                    st.session_state.report_type[card_key] = rtype["key"]
+                    st.rerun()
+
+        # Show hint for selected type
+        if selected_type:
+            matched = next((rt for rt in REPORT_TYPES if rt["key"] == selected_type), None)
+            if matched:
+                st.markdown(
+                    f'<div class="report-hint">💡 {matched["hint"]}</div>',
+                    unsafe_allow_html=True,
+                )
+
+        # Free-text reason
         reason_text = st.text_area(
-            "Why do you think this prediction is incorrect? *(optional)*",
+            "Additional details *(optional)*",
             value=st.session_state.report_text.get(card_key, ""),
-            placeholder="e.g. I got this branch/campus with rank 8,500 but the cutoff shows 7,000…",
+            placeholder="e.g. Got allotted CSE Core at Vellore with rank 8,200 — cutoff shown is 7,000 which seems low…",
             key=f"report_text_{card_key}",
-            height=90,
+            height=80,
         )
 
-        col_submit, col_cancel, col_pad = st.columns([1.2, 1, 4])
+        col_submit, col_cancel, col_pad2 = st.columns([1.2, 1, 4])
         with col_submit:
-            if st.button("✅ Submit", key=f"report_submit_{card_key}", type="primary"):
+            submit_disabled = not selected_type
+            if st.button("✅ Submit Report", key=f"report_submit_{card_key}",
+                         type="primary", disabled=submit_disabled):
                 st.session_state.report_text[card_key] = reason_text
-                # Persist to Google Sheet
+                full_reason = f"[{selected_type}] {reason_text}".strip()
                 ok = submit_report(
                     user_rank=rank,
                     campus=r["campus"],
@@ -968,7 +1162,7 @@ def render_result_with_report(r, rank, kind):
                     fee=r["fee"],
                     probability=r["probability"],
                     chance=r["chance"],
-                    reason_text=reason_text,
+                    reason_text=full_reason,
                 )
                 st.session_state.report_submitted[card_key] = True
                 st.session_state.report_open[card_key] = False
@@ -980,14 +1174,18 @@ def render_result_with_report(r, rank, kind):
                 st.session_state.report_open[card_key] = False
                 st.rerun()
 
+        if not selected_type:
+            st.caption("⬆️ Please select an issue type before submitting.")
+
         st.markdown(
-            '<div class="report-panel-footer">'
-            "Reports are anonymous. Include your actual rank and allotted branch/campus if known."
-            "</div>",
+            '<div class="report-footer">Reports are anonymous. '
+            'Include your actual rank and allotted branch/campus if known — '
+            'it helps the model improve for everyone.</div>'
+            '</div></div>',
             unsafe_allow_html=True,
         )
 
-    st.markdown('<div style="margin-bottom:0.75rem;"></div>', unsafe_allow_html=True)
+    st.markdown('<div style="margin-bottom:0.9rem;"></div>', unsafe_allow_html=True)
 
 
 def section_header(icon, title, count):
@@ -1031,7 +1229,6 @@ if predict_button:
         unlikely_list = [r for r in filtered_results if r["chance"] == "Very Unlikely"]
         avg_prob = sum(r["probability"] for r in filtered_results) / len(filtered_results)
 
-        # ── Metrics ──────────────────────────────────────────
         st.markdown(f"""
         <div class="metric-grid">
             <div class="metric-card">
@@ -1057,7 +1254,6 @@ if predict_button:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Dream (Reach) — shown FIRST ──────────────────────
         if dream_list:
             section_header("🔥", "Reach picks — possible but risky", len(dream_list))
             st.markdown(
@@ -1067,7 +1263,6 @@ if predict_button:
             for r in dream_list[:results_limit]:
                 render_result_with_report(r, rank, "dream")
 
-        # ── Moderate — shown SECOND ───────────────────────────
         if moderate_list:
             section_header("⚡", "Backup picks — possible but tighter", len(moderate_list))
             st.markdown(
@@ -1077,7 +1272,6 @@ if predict_button:
             for r in moderate_list[:results_limit]:
                 render_result_with_report(r, rank, "moderate")
 
-        # ── Safe — shown THIRD ────────────────────────────────
         if safe_list:
             section_header("✅", "Primary picks — strong rank fit", len(safe_list))
             st.markdown(
@@ -1087,7 +1281,6 @@ if predict_button:
             for r in safe_list[:results_limit]:
                 render_result_with_report(r, rank, "safe")
 
-        # ── Very Unlikely — shown LAST ────────────────────────
         if not safe_list and not moderate_list and not dream_list:
             section_header("⛔", "No viable options for these filters", len(unlikely_list))
             st.markdown(
@@ -1243,112 +1436,267 @@ with tab4:
 
 
 # =====================================================
-# ADMIN PANEL
+# ADMIN PANEL  (access via ?admin=1 — no link shown)
 # =====================================================
 
-# Access via ?admin=1 in the URL, then enter the password
 query_params = st.query_params
 if query_params.get("admin") == "1":
     st.markdown("---")
-    st.markdown(
-        f'''<div class="vit-header" style="margin-top:1.5rem;">
-            <div class="vit-header-icon" style="background:#dc2626;">🔐</div>
-            <div>
-                <h1 style="color:var(--vit-text);">Admin — Reported Predictions</h1>
-                <p>Private view of user-submitted prediction flags</p>
-            </div>
-        </div>''',
-        unsafe_allow_html=True,
-    )
 
-    # ── Password gate ─────────────────────────────────────────────────────
-    # If running locally (no secrets.toml / no admin_password secret),
-    # skip auth entirely so the developer can access the panel freely.
+    # ── Auth ─────────────────────────────────────────────────────────────
     try:
         _has_password_secret = "admin_password" in st.secrets
     except Exception:
-        _has_password_secret = False  # no secrets.toml at all — local dev
+        _has_password_secret = False
 
     if "admin_authed" not in st.session_state:
-        st.session_state.admin_authed = not _has_password_secret  # auto-login locally
+        st.session_state.admin_authed = not _has_password_secret
 
     if not st.session_state.admin_authed:
-        pw = st.text_input("Admin password", type="password", key="admin_pw")
-        if st.button("Login", type="primary", key="admin_login"):
-            correct = st.secrets.get("admin_password", "")
-            if pw == correct:
-                st.session_state.admin_authed = True
-                st.rerun()
-            else:
-                st.error("❌ Incorrect password.")
-    else:
-        # ── Fetch reports ─────────────────────────────────────────────────
-        if st.button("🔄 Refresh reports", key="admin_refresh"):
-            st.rerun()
+        # ── Login card ────────────────────────────────────────────────────
+        st.markdown("""
+        <div style="max-width:420px;margin:3rem auto 0;">
+            <div style="
+                background:linear-gradient(135deg,#1e1b4b,#312e81);
+                border-radius:14px 14px 0 0;
+                padding:1.5rem 2rem 1.2rem;
+                text-align:center;">
+                <div style="font-size:2.5rem;margin-bottom:0.4rem;">🔐</div>
+                <div style="font-size:1.25rem;font-weight:800;color:#ffffff;">Admin Login</div>
+                <div style="font-size:0.85rem;color:rgba(255,255,255,0.65);margin-top:0.2rem;">
+                    VIT Counselling Predictor — restricted area
+                </div>
+            </div>
+        """, unsafe_allow_html=True)
+        with st.container():
+            pw = st.text_input("Password", type="password", key="admin_pw",
+                               placeholder="Enter admin password…")
+            if st.button("🔓 Login", type="primary", key="admin_login", use_container_width=True):
+                correct = st.secrets.get("admin_password", "")
+                if pw == correct:
+                    st.session_state.admin_authed = True
+                    st.rerun()
+                else:
+                    st.error("❌ Incorrect password. Try again.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        with st.spinner("Loading reports from Google Sheets…"):
+    else:
+        # ── Admin Dashboard ───────────────────────────────────────────────
+        st.markdown("""
+        <div class="admin-header">
+            <div class="admin-header-icon">🔐</div>
+            <div>
+                <h2>Admin Dashboard</h2>
+                <p>Reported predictions — user-submitted accuracy flags</p>
+            </div>
+        </div>
+        """, unsafe_allow_html=True)
+
+        col_refresh, col_logout, col_pad = st.columns([1, 1, 6])
+        with col_refresh:
+            if st.button("🔄 Refresh", key="admin_refresh"):
+                st.rerun()
+        with col_logout:
+            if st.button("🔒 Logout", key="admin_logout"):
+                st.session_state.admin_authed = False
+                st.rerun()
+
+        with st.spinner("Loading reports…"):
             reports_df = get_reports()
 
         if reports_df is None:
             st.error("Failed to load reports — check Google Sheets connection.")
         elif reports_df.empty:
-            st.info("No reports submitted yet.")
+            st.info("📭 No reports submitted yet.")
         else:
-            total = len(reports_df)
-            with_reason = int((reports_df.get("Reason", pd.Series()) != "(no reason given)").sum())
-            col_a, col_b, col_c = st.columns(3)
-            with col_a:
-                st.metric("Total reports", total)
-            with col_b:
-                st.metric("With reason text", with_reason)
-            with col_c:
-                st.metric("Without reason", total - with_reason)
+            total        = len(reports_df)
+            with_reason  = int((reports_df.get("Reason", pd.Series()) != "(no reason given)").sum())
+            unique_comb  = reports_df[["Campus", "Branch"]].drop_duplicates().__len__() if "Campus" in reports_df.columns else 0
 
-            st.markdown('<div class="section-heading">📋 All reports</div>', unsafe_allow_html=True)
-
-            # Most recent first
+            # Sort most recent first
             try:
                 reports_df = reports_df.sort_values("Timestamp", ascending=False)
             except Exception:
                 pass
 
-            # Filter controls
-            fc1, fc2 = st.columns(2)
+            # ── Stat cards ────────────────────────────────────────────────
+            st.markdown(f"""
+            <div class="admin-stat-grid">
+                <div class="admin-stat-card">
+                    <div class="admin-stat-label">Total reports</div>
+                    <div class="admin-stat-value">{total}</div>
+                    <div class="admin-stat-sub">all time</div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-label">With details</div>
+                    <div class="admin-stat-value">{with_reason}</div>
+                    <div class="admin-stat-sub">have reason text</div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-label">Without details</div>
+                    <div class="admin-stat-value">{total - with_reason}</div>
+                    <div class="admin-stat-sub">type-only reports</div>
+                </div>
+                <div class="admin-stat-card">
+                    <div class="admin-stat-label">Unique combos</div>
+                    <div class="admin-stat-value">{unique_comb}</div>
+                    <div class="admin-stat-sub">branch × campus pairs</div>
+                </div>
+            </div>
+            """, unsafe_allow_html=True)
+
+            # ── Charts row ────────────────────────────────────────────────
+            if "Predicted Chance" in reports_df.columns or "Campus" in reports_df.columns:
+                chart_tab1, chart_tab2 = st.tabs(["By Predicted Chance", "By Campus"])
+
+                with chart_tab1:
+                    if "Predicted Chance" in reports_df.columns:
+                        chance_counts = reports_df["Predicted Chance"].value_counts()
+                        chance_colors = {
+                            "Safe": theme["safe_color"],
+                            "Moderate": theme["moderate_color"],
+                            "Dream": theme["dream_color"],
+                            "Very Unlikely": theme["soft"],
+                        }
+                        colors_list = [chance_colors.get(c, "#94a3b8") for c in chance_counts.index]
+                        fig = go.Figure(go.Bar(
+                            x=chance_counts.index.tolist(),
+                            y=chance_counts.values.tolist(),
+                            marker_color=colors_list,
+                            text=chance_counts.values.tolist(),
+                            textposition="outside",
+                        ))
+                        fig.update_layout(
+                            **CHART_THEME,
+                            title="Reports by predicted chance category",
+                            height=300,
+                            showlegend=False,
+                            xaxis=dict(tickfont=dict(color=theme["muted"]), gridcolor=theme["grid"]),
+                            yaxis=dict(tickfont=dict(color=theme["muted"]), gridcolor=theme["grid"]),
+                        )
+                        st.plotly_chart(fig, width="stretch")
+
+                with chart_tab2:
+                    if "Campus" in reports_df.columns:
+                        campus_counts_r = reports_df["Campus"].value_counts()
+                        fig2 = px.pie(
+                            values=campus_counts_r.values,
+                            names=campus_counts_r.index,
+                            title="Reports by campus",
+                            color_discrete_sequence=px.colors.qualitative.Bold,
+                        )
+                        style_pie(fig2)
+                        fig2.update_layout(height=300)
+                        st.plotly_chart(fig2, width="stretch")
+
+            # ── Filters ───────────────────────────────────────────────────
+            st.markdown('<div class="section-heading">🔍 Filter reports</div>', unsafe_allow_html=True)
+            fc1, fc2, fc3 = st.columns(3)
             with fc1:
                 filter_chance = st.multiselect(
-                    "Filter by predicted chance",
+                    "Predicted chance",
                     options=["Safe", "Moderate", "Dream", "Very Unlikely"],
                     default=[],
                     key="admin_filter_chance",
                 )
             with fc2:
                 filter_campus = st.multiselect(
-                    "Filter by campus",
+                    "Campus",
                     options=sorted(reports_df["Campus"].unique().tolist()) if "Campus" in reports_df.columns else [],
                     default=[],
                     key="admin_filter_campus",
                 )
+            with fc3:
+                filter_branch = st.multiselect(
+                    "Branch",
+                    options=sorted(reports_df["Branch"].unique().tolist()) if "Branch" in reports_df.columns else [],
+                    default=[],
+                    key="admin_filter_branch",
+                )
 
             display_reports = reports_df.copy()
             if filter_chance:
-                display_reports = display_reports[
-                    display_reports["Predicted Chance"].isin(filter_chance)
-                ]
+                display_reports = display_reports[display_reports["Predicted Chance"].isin(filter_chance)]
             if filter_campus:
-                display_reports = display_reports[
-                    display_reports["Campus"].isin(filter_campus)
-                ]
+                display_reports = display_reports[display_reports["Campus"].isin(filter_campus)]
+            if filter_branch:
+                display_reports = display_reports[display_reports["Branch"].isin(filter_branch)]
 
-            st.dataframe(
-                display_reports,
-                use_container_width=True,
-                height=500,
-                column_config={
-                    "Predicted Probability (%)": st.column_config.NumberColumn(format="%.1f%%"),
-                    "User Rank": st.column_config.NumberColumn(format="%d"),
-                    "Fee Category": st.column_config.NumberColumn(format="Category %d"),
-                },
+            st.markdown(
+                f'<div class="section-heading">📋 Reports &nbsp;·&nbsp; {len(display_reports)} of {total}</div>',
+                unsafe_allow_html=True
             )
+
+            # ── Report cards ──────────────────────────────────────────────
+            view_mode = st.segmented_control("View as", ["Cards", "Table"], default="Cards", key="admin_view_mode")
+
+            if view_mode == "Cards":
+                for _, row in display_reports.iterrows():
+                    chance_val = row.get("Predicted Chance", "—")
+                    chance_color_map = {
+                        "Safe": theme["safe_color"],
+                        "Moderate": theme["moderate_color"],
+                        "Dream": theme["dream_color"],
+                        "Very Unlikely": theme["soft"],
+                    }
+                    cc = chance_color_map.get(chance_val, theme["soft"])
+
+                    reason_raw = str(row.get("Reason", ""))
+                    is_no_reason = reason_raw in ("(no reason given)", "", "nan")
+                    reason_class = "no-reason" if is_no_reason else ""
+                    reason_display = "No details provided." if is_no_reason else escape(reason_raw)
+
+                    ts = str(row.get("Timestamp", ""))[:16]
+
+                    st.markdown(f"""
+                    <div style="
+                        background:var(--vit-surface);
+                        border:1px solid var(--vit-border);
+                        border-left:5px solid {cc};
+                        border-radius:10px;
+                        padding:1rem 1.25rem;
+                        margin-bottom:0.6rem;
+                        box-shadow:var(--vit-shadow);
+                    ">
+                        <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:0.5rem;margin-bottom:0.7rem;">
+                            <div>
+                                <span style="font-size:1rem;font-weight:800;color:var(--vit-text);">
+                                    {escape(str(row.get("Branch","—")))}
+                                </span>
+                                <span style="font-size:0.82rem;color:var(--vit-muted);margin-left:0.5rem;">
+                                    {escape(str(row.get("Campus","—")))} · Fee Cat {row.get("Fee Category","—")}
+                                </span>
+                            </div>
+                            <div style="display:flex;gap:0.5rem;align-items:center;flex-wrap:wrap;">
+                                <span style="
+                                    font-size:0.72rem;font-weight:700;
+                                    padding:3px 10px;border-radius:99px;
+                                    background:{cc}22;color:{cc};
+                                    border:1px solid {cc}55;
+                                ">{chance_val}</span>
+                                <span style="font-size:0.75rem;color:var(--vit-muted);">
+                                    Prob: {row.get("Predicted Probability (%)","—")}%
+                                </span>
+                                <span style="font-size:0.75rem;color:var(--vit-muted);">
+                                    Rank: {row.get("User Rank","—"):,}
+                                </span>
+                                <span style="font-size:0.72rem;color:var(--vit-soft);">{ts}</span>
+                            </div>
+                        </div>
+                        <div class="admin-report-reason {reason_class}">{reason_display}</div>
+                    </div>
+                    """, unsafe_allow_html=True)
+            else:
+                st.dataframe(
+                    display_reports,
+                    use_container_width=True,
+                    height=500,
+                    column_config={
+                        "Predicted Probability (%)": st.column_config.NumberColumn(format="%.1f%%"),
+                        "User Rank": st.column_config.NumberColumn(format="%d"),
+                        "Fee Category": st.column_config.NumberColumn(format="Category %d"),
+                    },
+                )
             st.caption(f"Showing {len(display_reports):,} of {total:,} reports")
 
             # CSV download
@@ -1360,10 +1708,6 @@ if query_params.get("admin") == "1":
                 mime="text/csv",
                 key="admin_csv_download",
             )
-
-        if st.button("🔒 Logout", key="admin_logout"):
-            st.session_state.admin_authed = False
-            st.rerun()
 
 # =====================================================
 # FOOTER
