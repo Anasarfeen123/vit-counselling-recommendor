@@ -69,7 +69,6 @@ def normalize_branch(branch: str) -> str:
         # CSE Core
         "cse": "CSE Core",
         "cs": "CSE Core",
-        "core": "CSE Core",
         "cse core": "CSE Core",
         "cs core": "CSE Core",
         "csecore": "CSE Core",
@@ -77,15 +76,18 @@ def normalize_branch(branch: str) -> str:
         "btech cse": "CSE Core",
         "computer science": "CSE Core",
         "computer science engineering": "CSE Core",
+        "cse cs": "CSE Core",  # typo variant
+        "cse spec unspecified": "CSE Core",
         # AIML
         "cse aiml": "CSE AIML",
         "cse ai ml": "CSE AIML",
-        "cse ai/ml": "CSE AIML",
-        "cse ai & ml": "CSE AIML",
-        "cse ai&ml": "CSE AIML",
+        "cse ai ml": "CSE AIML",
+        "cse ai ml": "CSE AIML",
+        "cse ai ml": "CSE AIML",
         "aiml": "CSE AIML",
         "ai ml": "CSE AIML",
         "artificial intelligence and machine learning": "CSE AIML",
+        "cse artificial intelligence and machine learning": "CSE AIML",
         # Data Science
         "cse ds": "CSE DS",
         "cse data science": "CSE DS",
@@ -95,12 +97,18 @@ def normalize_branch(branch: str) -> str:
         "cse cybersecurity": "CSE Cybersecurity",
         "cybersecurity": "CSE Cybersecurity",
         "cse cyber": "CSE Cybersecurity",
+        "cse cyber security": "CSE Cybersecurity",
+        "cse cybersec": "CSE Cybersecurity",
+        "cyber security": "CSE Cybersecurity",
         # Business Systems
         "cse business systems": "CSE Business Systems",
         "cse bs": "CSE Business Systems",
+        "csbs": "CSE Business Systems",
+        "cs business systems": "CSE Business Systems",
         # Robotics
         "cse ai robo": "CSE Robotics",
         "robotics": "CSE Robotics",
+        "cse robotics": "CSE Robotics",
         # IoT
         "cse iot": "CSE IoT",
         "iot": "CSE IoT",
@@ -111,30 +119,43 @@ def normalize_branch(branch: str) -> str:
         "ece": "ECE Core",
         "ece core": "ECE Core",
         "electronics and communication": "ECE Core",
+        "electronics and communication engineering": "ECE Core",
         "ecm": "ECM",
+        "ecse": "ECSE",
+        "electronics and computer engineering": "ECSE",
         # IT
         "it": "IT Core",
         "it core": "IT Core",
         "information technology": "IT Core",
         # Mechanical
         "mechanical": "Mechanical",
-        "me": "Mechanical",
         "mech": "Mechanical",
+        "mech core": "Mechanical",
+        "mechanical core": "Mechanical",
+        "mechanical engineering": "Mechanical",
         "mechanical ev": "Mechanical EV",
+        "mech ev": "Mechanical EV",
+        "mechanical engineering smart manufacturing": "Mechanical EV",
         # Mechatronics
         "mechatronics": "Mechatronics",
         # Civil
         "civil": "Civil",
-        "ce": "Civil",
+        "civil engineering": "Civil",
         # Electrical
         "electrical": "Electrical",
         "eee": "Electrical",
-        "ee": "Electrical",
+        "eie": "Electrical",
         "ee vlsi design and technology": "Electrical VLSI",
+        "electronics engineering vlsi design and technology": "Electrical VLSI",
+        "ee vlsi": "Electrical VLSI",
+        "ee vlsi ": "Electrical VLSI",
+        "ee  vlsi ": "Electrical VLSI",
         # Chemical
         "chemical": "Chemical",
         # Biotech
         "biotechnology": "Biotechnology",
+        "biotech": "Biotechnology",
+        "bio technology": "Biotechnology",
     }
 
     if branch in mapping:
@@ -142,12 +163,26 @@ def normalize_branch(branch: str) -> str:
     if branch_key in mapping:
         return mapping[branch_key]
 
-    # Smart CSE detection
+    # Smart pattern matching for common variants
+    if "vlsi" in tokens:
+        return "Electrical VLSI"
+    if tokens & {"aiml", "artificial", "machine"} and tokens & {
+        "intelligence",
+        "learning",
+        "aiml",
+    }:
+        return "CSE AIML"
+    if (
+        "cybersecurity" in branch_key
+        or "cyber security" in branch_key
+        or "cybersec" in branch_key
+    ):
+        return "CSE Cybersecurity"
     if (tokens & {"cse", "cs", "computer"}) or "computer science" in branch_key:
         if tokens & {"core", "science"}:
             return "CSE Core"
 
-    return branch.title()
+    return None  # unknown — caller should reject this row
 
 
 # =====================================================
@@ -191,6 +226,47 @@ def _valid_rank(rank) -> bool:
         return False
 
 
+# ── Whitelists — only these canonical names are accepted from form responses ──
+# Any branch/campus that normalize_branch / normalize_campus does not map to
+# one of these values is silently dropped before the Supabase upsert.
+
+VALID_CAMPUSES: set[str] = {
+    "Vellore",
+    "Chennai",
+    "Bhopal",
+    "Amaravati",
+}
+
+VALID_BRANCHES: set[str] = {
+    # CSE family
+    "CSE Core",
+    "CSE AIML",
+    "CSE DS",
+    "CSE Cybersecurity",
+    "CSE Business Systems",
+    "CSE Robotics",
+    "CSE IoT",
+    "CSE CPS",
+    # ECE / Electronics
+    "ECE Core",
+    "ECM",
+    "ECSE",
+    # IT
+    "IT Core",
+    # Electrical
+    "Electrical",
+    "Electrical VLSI",
+    # Mechanical
+    "Mechanical",
+    "Mechanical EV",
+    "Mechatronics",
+    # Others
+    "Civil",
+    "Chemical",
+    "Biotechnology",
+}
+
+
 # =====================================================
 # SEED HISTORICAL DATA  (idempotent, runs once)
 # =====================================================
@@ -218,6 +294,7 @@ def _seed_historical() -> int:
     hist["Fee"] = hist["Fee"].astype(int)
     hist["Branch"] = hist["Branch"].apply(normalize_branch)
     hist["Campus"] = hist["Campus"].apply(normalize_campus)
+    hist = hist.dropna(subset=["Branch", "Campus"])  # drop rows normalize returned None
     hist = hist.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
 
     records = [
@@ -276,7 +353,22 @@ def _sync_form_responses() -> int:
         df["Fee"] = df["Fee"].astype(int)
         df["Branch"] = df["Branch"].apply(normalize_branch)
         df["Campus"] = df["Campus"].apply(normalize_campus)
-        df = df[df["Fee"].apply(_valid_fee) & df["Rank"].apply(_valid_rank)]
+
+        # ── Strict whitelist: drop any row with an unrecognised branch or campus.
+        # This is the primary guard against spam / test submissions flooding the DB.
+        before = len(df)
+        df = df[
+            df["Branch"].isin(VALID_BRANCHES)
+            & df["Campus"].isin(VALID_CAMPUSES)
+            & df["Fee"].apply(_valid_fee)
+            & df["Rank"].apply(_valid_rank)
+        ]
+        dropped = before - len(df)
+        if dropped:
+            print(
+                f"[load] ⚠ Dropped {dropped} form rows with invalid branch/campus/fee/rank"
+            )
+
         df = df.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
 
         records = [
@@ -291,7 +383,7 @@ def _sync_form_responses() -> int:
         ]
         if records:
             db.upsert_records(records)
-        print(f"[load] 🔄 Synced {len(records)} form responses")
+        print(f"[load] 🔄 Synced {len(records)} valid form responses")
         return len(records)
     except Exception as exc:
         print(f"[load] _sync_form_responses error: {exc}")
@@ -312,6 +404,7 @@ _hist["Rank"] = _hist["Rank"].astype(int)
 _hist["Fee"] = _hist["Fee"].astype(int)
 _hist["Branch"] = _hist["Branch"].apply(normalize_branch)
 _hist["Campus"] = _hist["Campus"].apply(normalize_campus)
+_hist = _hist.dropna(subset=["Branch", "Campus"])  # drop unrecognised entries
 _hist["source"] = "historical"
 
 _sb = db.fetch_all_records()
