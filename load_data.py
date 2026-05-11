@@ -2,6 +2,7 @@ import streamlit as st
 import gspread
 import pandas as pd
 import re
+from datetime import datetime
 
 from oauth2client.service_account import (
     ServiceAccountCredentials
@@ -58,9 +59,12 @@ except Exception:
 
 client = gspread.authorize(creds)
 
-sheet = client.open_by_url(
-    "https://docs.google.com/spreadsheets/d/1IOKcDcfUXporFN4VAqh6G1SYuGpCxZo5iCnraVePVsY/edit?usp=sharing"
-).sheet1
+SPREADSHEET_URL = (
+    "https://docs.google.com/spreadsheets/d/"
+    "1IOKcDcfUXporFN4VAqh6G1SYuGpCxZo5iCnraVePVsY/edit?usp=sharing"
+)
+
+sheet = client.open_by_url(SPREADSHEET_URL).sheet1
 
 # =====================================================
 # LOAD LIVE GOOGLE FORM DATA
@@ -522,3 +526,78 @@ for _, row in master_df.iterrows():
         )
 
         cutoffs[key]["responses"] += 1
+
+
+# =====================================================
+# REPORTS SHEET — submit & fetch
+# =====================================================
+
+REPORTS_SHEET_NAME = "Reports"
+
+
+def _get_or_create_reports_sheet():
+    """Return the Reports worksheet, creating it with headers if missing."""
+    spreadsheet = client.open_by_url(SPREADSHEET_URL)
+    try:
+        ws = spreadsheet.worksheet(REPORTS_SHEET_NAME)
+    except Exception:
+        ws = spreadsheet.add_worksheet(
+            title=REPORTS_SHEET_NAME, rows=1000, cols=10
+        )
+        ws.append_row(
+            [
+                "Timestamp",
+                "User Rank",
+                "Campus",
+                "Branch",
+                "Fee Category",
+                "Predicted Probability (%)",
+                "Predicted Chance",
+                "Reason",
+            ],
+            value_input_option="RAW",
+        )
+    return ws
+
+
+def submit_report(user_rank, campus, branch, fee, probability, chance, reason_text):
+    """Append one report row to the Reports sheet. Returns True on success."""
+    try:
+        ws = _get_or_create_reports_sheet()
+        ws.append_row(
+            [
+                datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
+                int(user_rank),
+                str(campus),
+                str(branch),
+                int(fee),
+                round(float(probability), 1),
+                str(chance),
+                str(reason_text).strip() if reason_text else "(no reason given)",
+            ],
+            value_input_option="RAW",
+        )
+        return True
+    except Exception as e:
+        print(f"❌ submit_report failed: {e}")
+        return False
+
+
+def get_reports():
+    """
+    Fetch all rows from the Reports sheet as a DataFrame.
+    Returns None on error, empty DataFrame if sheet has no data rows.
+    """
+    try:
+        ws = _get_or_create_reports_sheet()
+        records = ws.get_all_records()
+        if not records:
+            return pd.DataFrame(columns=[
+                "Timestamp", "User Rank", "Campus", "Branch",
+                "Fee Category", "Predicted Probability (%)",
+                "Predicted Chance", "Reason",
+            ])
+        return pd.DataFrame(records)
+    except Exception as e:
+        print(f"❌ get_reports failed: {e}")
+        return None
