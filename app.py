@@ -351,18 +351,29 @@ st.markdown(
         align-items: center;
         gap: 16px;
         padding: 1.5rem 1.75rem;
-        background: var(--vit-surface);
+        background: linear-gradient(135deg, var(--vit-surface) 60%, color-mix(in srgb, var(--vit-surface), var(--vit-primary) 6%) 100%);
         border: 1px solid var(--vit-border);
-        border-radius: 12px;
+        border-radius: 14px;
         margin-bottom: 1.25rem;
         box-shadow: var(--vit-shadow);
+        position: relative;
+        overflow: hidden;
+    }}
+    .vit-header::after {{
+        content: "";
+        position: absolute;
+        bottom: 0; left: 0; right: 0;
+        height: 2px;
+        background: linear-gradient(90deg, var(--vit-primary), var(--vit-primary-dark), transparent);
+        opacity: 0.6;
     }}
     .vit-header-icon {{
         width: 54px; height: 54px;
-        background: var(--vit-primary);
+        background: linear-gradient(135deg, var(--vit-primary), var(--vit-primary-dark));
         border-radius: 12px;
         display: flex; align-items: center; justify-content: center;
         font-size: 1.65rem; flex-shrink: 0;
+        box-shadow: 0 4px 14px color-mix(in srgb, var(--vit-primary) 50%, transparent);
     }}
     .vit-header h1 {{ margin: 0; font-size: 1.65rem; font-weight: 800; color: var(--vit-text); }}
     .vit-header p  {{ margin: 0.25rem 0 0; font-size: 0.95rem; color: var(--vit-muted); }}
@@ -463,6 +474,11 @@ st.markdown(
         border-radius: 8px;
         background: var(--vit-chip-bg);
         min-width: 90px;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }}
+    .chip:hover {{
+        border-color: var(--vit-primary) !important;
+        box-shadow: 0 0 0 2px var(--vit-primary)18;
     }}
     .chip-label {{
         font-size: 0.72rem;
@@ -583,20 +599,26 @@ st.markdown(
     .metric-card {{
         background: var(--vit-surface);
         border: 1px solid var(--vit-border);
+        border-left: 3px solid var(--vit-primary);
         border-radius: 10px;
         padding: 1.1rem 1.4rem;
         min-height: 110px;
         box-shadow: var(--vit-shadow);
+        transition: transform 0.18s, box-shadow 0.18s;
+    }}
+    .metric-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 28px rgba(0,0,0,0.13);
     }}
     .metric-card-label {{
-        font-size: 0.76rem;
+        font-size: 0.72rem;
         color: var(--vit-soft);
         text-transform: uppercase;
-        letter-spacing: 0.05em;
+        letter-spacing: 0.07em;
         font-weight: 700;
     }}
     .metric-card-value {{
-        font-size: 1.95rem;
+        font-size: 2rem;
         font-weight: 800;
         color: var(--vit-text);
         margin: 6px 0 3px;
@@ -610,9 +632,10 @@ st.markdown(
         border: 1px solid var(--vit-border);
         border-radius: 10px;
         padding: 0.8rem 1.1rem;
-        font-size: 0.9rem;
+        font-size: 0.88rem;
         margin-bottom: 0.75rem;
         font-weight: 600;
+        line-height: 1.5;
     }}
     .context-banner.safe     {{ background: var(--safe-bg);     border-color: var(--safe-border);     color: var(--safe-text); }}
     .context-banner.moderate {{ background: var(--moderate-bg); border-color: var(--moderate-border); color: var(--moderate-text); }}
@@ -818,13 +841,33 @@ st.markdown(
         font-weight: 650;
     }}
     div[data-testid="stTabs"] [aria-selected="true"] {{ color: var(--vit-primary-dark) !important; }}
-    [data-testid="stSegmentedControl"] label[aria-checked="true"],
-    [data-testid="stSegmentedControl"] label[data-checked="true"] {{
-        background: var(--vit-primary) !important;
-    }}
+    /* ── Segmented control — comprehensive fix (covers all Streamlit 1.5x variants) ── */
+    [data-testid="stSegmentedControl"] > div,
+    [data-testid="stSegmentedControl"] [role="radiogroup"],
     [data-testid="stSegmentedControl"] div[role="radiogroup"] {{
-        background: var(--vit-input) !important;
+        background-color: var(--vit-input) !important;
         border-color: var(--vit-border) !important;
+        border-radius: 8px !important;
+        padding: 3px !important;
+        gap: 2px !important;
+    }}
+    [data-testid="stSegmentedControl"] label,
+    [data-testid="stSegmentedControl"] button {{
+        background-color: transparent !important;
+        color: var(--vit-muted) !important;
+        border-radius: 6px !important;
+        border: none !important;
+        transition: color 0.15s !important;
+    }}
+    [data-testid="stSegmentedControl"] label[aria-checked="true"],
+    [data-testid="stSegmentedControl"] label[data-checked="true"],
+    [data-testid="stSegmentedControl"] label[aria-selected="true"],
+    [data-testid="stSegmentedControl"] button[aria-pressed="true"],
+    [data-testid="stSegmentedControl"] button[aria-selected="true"],
+    [data-testid="stSegmentedControl"] button[data-selected="true"] {{
+        background-color: var(--vit-primary) !important;
+        color: #ffffff !important;
+        box-shadow: 0 1px 6px rgba(0,0,0,0.25) !important;
     }}
     [data-testid="stSegmentedControl"] label {{ color: var(--vit-text) !important; }}
     [data-testid="stCaptionContainer"] p {{ color: var(--vit-muted) !important; }}
@@ -948,6 +991,76 @@ st.markdown(
     ::-webkit-scrollbar-thumb {{ background: var(--vit-border); border-radius: 4px; }}
     ::-webkit-scrollbar-thumb:hover {{ background: var(--vit-soft); }}
 
+    /* ── Category overview bar ── */
+    .cat-overview {{
+        display: flex;
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 1.75rem;
+        box-shadow: var(--vit-shadow);
+    }}
+    .cat-pill {{
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        padding: 0.9rem 0.5rem 0.75rem;
+        gap: 0.15rem;
+        border-right: 1px solid var(--vit-border);
+        text-align: center;
+        transition: background 0.15s;
+        cursor: default;
+    }}
+    .cat-pill:last-child {{ border-right: none; }}
+    .cat-pill:hover {{ background: var(--vit-input); }}
+    .cat-pill-icon {{ font-size: 1.05rem; line-height: 1; }}
+    .cat-pill-count {{
+        font-size: 1.75rem;
+        font-weight: 800;
+        line-height: 1;
+        letter-spacing: -0.03em;
+    }}
+    .cat-pill-label {{
+        font-size: 0.65rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.07em;
+        opacity: 0.85;
+    }}
+
+    /* ── Empty state card ── */
+    .empty-state {{
+        text-align: center;
+        padding: 1.75rem 1.5rem 1.6rem;
+        background: var(--vit-surface);
+        border: 1.5px dashed var(--vit-border);
+        border-radius: 10px;
+        margin-bottom: 0.9rem;
+        opacity: 0.85;
+    }}
+    .empty-state-icon {{
+        font-size: 1.8rem;
+        display: block;
+        margin-bottom: 0.45rem;
+        line-height: 1;
+    }}
+    .empty-state-title {{
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--vit-text);
+        margin-bottom: 0.3rem;
+    }}
+    .empty-state-sub {{
+        font-size: 0.78rem;
+        color: var(--vit-muted);
+        line-height: 1.55;
+        max-width: 420px;
+        margin: 0 auto;
+    }}
+
     /* ── Responsive ── */
     @media (max-width: 900px) {{
         [data-testid="stMainBlockContainer"] {{ padding: 1.25rem 1rem; }}
@@ -990,20 +1103,26 @@ st.markdown(
     to see your personalised predictions. The predictor uses a <strong>90th percentile cutoff model</strong>
     so outlier ranks don't inflate estimates.
 </div>
+""",
+    unsafe_allow_html=True,
+)
+st.markdown(
+    f"""
 <div style="
-    background: #fff1f2;
-    border: 1px solid #fda4af;
-    border-left: 5px solid #e11d48;
+    background: {theme["dream_bg"]};
+    border: 1px solid {theme["dream_border"]};
+    border-left: 5px solid {theme["dream_color"]};
     border-radius: 10px;
     padding: 0.85rem 1.1rem;
-    font-size: 0.88rem;
-    color: #9f1239;
+    font-size: 0.85rem;
+    color: {theme["dream_text"]};
     margin-bottom: 1.5rem;
     line-height: 1.6;
 ">
-    ⚠️ <strong>Disclaimer:</strong> This tool is <u>unofficial</u> and not affiliated with VIT or any official counselling authority.
-    All predictions are based on historical data and statistical models, and <strong>may not reflect actual results</strong>.
-    Always verify with official VIT counselling resources before making any final decisions. Use at your own discretion.
+    ⚠️ <strong>Disclaimer:</strong> This tool is <u>unofficial</u> and not affiliated with VIT or any
+    official counselling authority. All predictions are based on historical data and statistical models
+    and <strong>may not reflect actual results</strong>. Always verify with official VIT counselling
+    resources before making any final decisions. Use at your own discretion.
 </div>
 """,
     unsafe_allow_html=True,
@@ -1013,6 +1132,30 @@ st.markdown(
 # SIDEBAR
 # =====================================================
 
+st.sidebar.markdown(
+    f"""
+<div style="
+    background:linear-gradient(135deg,{theme["primary"]}18,{theme["primary_dark"]}0d);
+    border:1px solid {theme["primary"]}30;
+    border-radius:12px;
+    padding:1rem 1rem 0.9rem;
+    margin-bottom:1.1rem;
+    display:flex;align-items:center;gap:0.85rem;
+">
+    <div style="
+        width:40px;height:40px;border-radius:10px;flex-shrink:0;
+        background:linear-gradient(135deg,{theme["primary"]},{theme["primary_dark"]});
+        display:flex;align-items:center;justify-content:center;font-size:1.3rem;
+        box-shadow:0 3px 10px {theme["primary"]}40;
+    ">🎓</div>
+    <div>
+        <div style="font-size:0.88rem;font-weight:800;color:{theme["text"]};letter-spacing:-0.01em;line-height:1.2;">VIT Predictor</div>
+        <div style="font-size:0.7rem;color:{theme["muted"]};margin-top:1px;">Admission probability tool</div>
+    </div>
+</div>
+""",
+    unsafe_allow_html=True,
+)
 st.sidebar.markdown("### ⚙️ Settings")
 
 rank = st.sidebar.number_input(
@@ -1561,53 +1704,122 @@ if st.session_state.get("_pred_ready"):
             unsafe_allow_html=True,
         )
 
-        if dream_list:
-            section_header("🔥", "Reach picks — possible but risky", len(dream_list))
-            st.markdown(
-                '<div class="context-banner dream">Outside or near the observed cutoff — possible but a stretch. Add these to aim high, but always pair with safer backups.</div>',
-                unsafe_allow_html=True,
-            )
-            for r in dream_list[:results_limit]:
-                render_result_with_report(r, _rank, "dream")
+        # ── Category overview bar (always visible) ─────────────────────────
+        sc = theme["safe_color"]
+        mc = theme["moderate_color"]
+        dc = theme["dream_color"]
+        uc = theme["muted"]
+        st.markdown(
+            f"""
+            <div class="cat-overview">
+              <div class="cat-pill" style="border-top:3px solid {sc};">
+                <span class="cat-pill-icon">✅</span>
+                <span class="cat-pill-count" style="color:{sc};">{len(safe_list)}</span>
+                <span class="cat-pill-label" style="color:{sc};">Primary</span>
+              </div>
+              <div class="cat-pill" style="border-top:3px solid {mc};">
+                <span class="cat-pill-icon">⚡</span>
+                <span class="cat-pill-count" style="color:{mc};">{len(moderate_list)}</span>
+                <span class="cat-pill-label" style="color:{mc};">Backup</span>
+              </div>
+              <div class="cat-pill" style="border-top:3px solid {dc};">
+                <span class="cat-pill-icon">🔥</span>
+                <span class="cat-pill-count" style="color:{dc};">{len(dream_list)}</span>
+                <span class="cat-pill-label" style="color:{dc};">Reach</span>
+              </div>
+              <div class="cat-pill" style="border-top:3px solid {uc};">
+                <span class="cat-pill-icon">⛔</span>
+                <span class="cat-pill-count" style="color:{uc};">{len(unlikely_list)}</span>
+                <span class="cat-pill-label" style="color:{uc};">Skip</span>
+              </div>
+            </div>
+            """,
+            unsafe_allow_html=True,
+        )
 
-        if moderate_list:
-            section_header(
-                "⚡", "Backup picks — possible but tighter", len(moderate_list)
-            )
-            st.markdown(
-                '<div class="context-banner moderate">These are within reach but have a narrow buffer, high spread, or limited data. Good backups.</div>',
-                unsafe_allow_html=True,
-            )
-            for r in moderate_list[:results_limit]:
-                render_result_with_report(r, _rank, "moderate")
-
+        # ── ✅ Primary / Safe (always shown) ──────────────────────────────
+        section_header("✅", "Primary picks — strong rank fit", len(safe_list))
         if safe_list:
-            section_header("✅", "Primary picks — strong rank fit", len(safe_list))
             st.markdown(
                 '<div class="context-banner safe">Your rank sits comfortably inside these cutoffs. Prioritise by campus preference and fee category.</div>',
                 unsafe_allow_html=True,
             )
             for r in safe_list[:results_limit]:
                 render_result_with_report(r, _rank, "safe")
+        else:
+            st.markdown(
+                '<div class="empty-state">'
+                '<span class="empty-state-icon">📭</span>'
+                '<div class="empty-state-title">No primary picks for your rank with these filters</div>'
+                '<div class="empty-state-sub">Your rank may be outside the observed cutoffs for the selected programs. '
+                "Try expanding your campus or branch selection, or choose higher fee categories.</div>"
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
-        if not safe_list and not moderate_list and not dream_list:
-            section_header(
-                "⛔", "No viable options for these filters", len(unlikely_list)
-            )
+        # ── ⚡ Backup / Moderate (always shown) ───────────────────────────
+        section_header("⚡", "Backup picks — possible but tighter", len(moderate_list))
+        if moderate_list:
             st.markdown(
-                '<div class="context-banner dream">Your rank is far outside observed cutoffs. Broaden your campus, branch, or fee selection.</div>',
+                '<div class="context-banner moderate">These are within reach but have a narrow buffer, high spread, or limited data. Good backups.</div>',
                 unsafe_allow_html=True,
             )
-            for r in unlikely_list[:results_limit]:
-                render_result_with_report(r, _rank, "unlikely")
-        elif unlikely_list:
-            section_header("⛔", "Not recommended", len(unlikely_list))
+            for r in moderate_list[:results_limit]:
+                render_result_with_report(r, _rank, "moderate")
+        else:
             st.markdown(
-                '<div class="context-banner dream">These match your filters but are well outside the observed cutoff. For awareness only.</div>',
+                '<div class="empty-state">'
+                '<span class="empty-state-icon">📋</span>'
+                '<div class="empty-state-title">No backup options for these filters</div>'
+                '<div class="empty-state-sub">Either your rank is very strong (so everything is already Primary!), '
+                "or try expanding your filters to surface more options.</div>"
+                "</div>",
                 unsafe_allow_html=True,
             )
-            for r in unlikely_list[: min(results_limit, 5)]:
+
+        # ── 🔥 Reach / Dream (always shown) ──────────────────────────────
+        section_header("🔥", "Reach picks — possible but risky", len(dream_list))
+        if dream_list:
+            st.markdown(
+                '<div class="context-banner dream">Outside or near the observed cutoff — possible but a stretch. Add these to aim high, but always pair with safer backups.</div>',
+                unsafe_allow_html=True,
+            )
+            for r in dream_list[:results_limit]:
+                render_result_with_report(r, _rank, "dream")
+        else:
+            st.markdown(
+                '<div class="empty-state">'
+                '<span class="empty-state-icon">🎯</span>'
+                '<div class="empty-state-title">No reach options here</div>'
+                '<div class="empty-state-sub">Your rank is safely within cutoffs for all filtered programs — nothing is a stretch pick!</div>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
+
+        # ── ⛔ Not recommended / Unlikely (always shown) ──────────────────
+        section_header("⛔", "Not recommended — far outside cutoff", len(unlikely_list))
+        if unlikely_list:
+            st.markdown(
+                '<div class="context-banner dream">These match your filters but are well outside the observed cutoff. Listed for awareness only — not worth applying.</div>',
+                unsafe_allow_html=True,
+            )
+            _show_unlikely = unlikely_list[: min(results_limit, 5)]
+            for r in _show_unlikely:
                 render_result_with_report(r, _rank, "unlikely")
+            if len(unlikely_list) > len(_show_unlikely):
+                st.caption(
+                    f"Showing {len(_show_unlikely)} of {len(unlikely_list)} not-recommended options. "
+                    "Expand your filters or raise the category limit to see more."
+                )
+        else:
+            st.markdown(
+                '<div class="empty-state">'
+                '<span class="empty-state-icon">✨</span>'
+                '<div class="empty-state-title">Nothing far out of range</div>'
+                '<div class="empty-state-sub">No programs are well outside your reach for the current filters. Great rank!</div>'
+                "</div>",
+                unsafe_allow_html=True,
+            )
 
 # =====================================================
 # DATASET ANALYTICS
@@ -2243,12 +2455,35 @@ if query_params.get("admin") == "1":
 st.markdown("---")
 
 c1, c2, c3 = st.columns(3)
+_card = (
+    "background:{bg};border:1px solid {border};border-left:3px solid {accent};"
+    "border-radius:10px;padding:0.9rem 1.1rem;display:flex;align-items:center;"
+    "gap:0.85rem;box-shadow:{shadow};"
+)
 with c1:
-    st.info(f"📊 Data updated: {pd.Timestamp.now().strftime('%Y-%m-%d')}")
+    st.markdown(
+        f'<div style="{_card.format(bg=theme["surface"], border=theme["border"], accent=theme["primary"], shadow=theme["shadow"])}">'
+        f'<span style="font-size:1.4rem;flex-shrink:0;">📊</span>'
+        f'<div><div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:{theme["muted"]}">Data updated</div>'
+        f'<div style="font-size:0.92rem;font-weight:700;color:{theme["text"]};margin-top:2px;">{pd.Timestamp.now().strftime("%Y-%m-%d")}</div></div></div>',
+        unsafe_allow_html=True,
+    )
 with c2:
-    st.info(f"📌 {len(master_df):,} student records")
+    st.markdown(
+        f'<div style="{_card.format(bg=theme["surface"], border=theme["border"], accent=theme["safe_color"], shadow=theme["shadow"])}">'
+        f'<span style="font-size:1.4rem;flex-shrink:0;">📌</span>'
+        f'<div><div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:{theme["muted"]}">Student records</div>'
+        f'<div style="font-size:0.92rem;font-weight:700;color:{theme["text"]};margin-top:2px;">{len(master_df):,}</div></div></div>',
+        unsafe_allow_html=True,
+    )
 with c3:
-    st.info("🔄 Accuracy improves with more responses")
+    st.markdown(
+        f'<div style="{_card.format(bg=theme["surface"], border=theme["border"], accent=theme["moderate_color"], shadow=theme["shadow"])}">'
+        f'<span style="font-size:1.4rem;flex-shrink:0;">🔄</span>'
+        f'<div><div style="font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;color:{theme["muted"]}">Model quality</div>'
+        f'<div style="font-size:0.92rem;font-weight:700;color:{theme["text"]};margin-top:2px;">Improves with data</div></div></div>',
+        unsafe_allow_html=True,
+    )
 
 st.markdown(
     """
