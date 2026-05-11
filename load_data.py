@@ -58,6 +58,7 @@ SPREADSHEET_URL = (
 # BRANCH NORMALISATION
 # =====================================================
 
+
 def normalize_branch(branch: str) -> str:
     branch = str(branch).lower().strip()
     branch = " ".join(branch.split())
@@ -153,18 +154,19 @@ def normalize_branch(branch: str) -> str:
 # CAMPUS NORMALISATION
 # =====================================================
 
+
 def normalize_campus(campus: str) -> str:
     campus = str(campus).lower().strip()
     mapping = {
-        "vellore":       "Vellore",
-        "vit vellore":   "Vellore",
-        "chennai":       "Chennai",
-        "vit chennai":   "Chennai",
-        "vtc":           "Chennai",
-        "bhopal":        "Bhopal",
-        "vit bhopal":    "Bhopal",
-        "amaravati":     "Amaravati",
-        "ap":            "Amaravati",
+        "vellore": "Vellore",
+        "vit vellore": "Vellore",
+        "chennai": "Chennai",
+        "vit chennai": "Chennai",
+        "vtc": "Chennai",
+        "bhopal": "Bhopal",
+        "vit bhopal": "Bhopal",
+        "amaravati": "Amaravati",
+        "ap": "Amaravati",
         "vit amaravati": "Amaravati",
     }
     return mapping.get(campus, campus.title())
@@ -173,6 +175,7 @@ def normalize_campus(campus: str) -> str:
 # =====================================================
 # VALIDATION HELPERS
 # =====================================================
+
 
 def _valid_fee(fee) -> bool:
     try:
@@ -192,6 +195,7 @@ def _valid_rank(rank) -> bool:
 # SEED HISTORICAL DATA  (idempotent, runs once)
 # =====================================================
 
+
 @st.cache_resource(show_spinner=False)
 def _seed_historical() -> int:
     """
@@ -208,24 +212,24 @@ def _seed_historical() -> int:
     hist = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
     hist.columns = ["Rank", "Campus", "Branch", "Fee"]
     hist = hist.dropna()
-    hist["Rank"]   = hist["Rank"].astype(int)
-    hist["Fee"]    = hist["Fee"].astype(int)
+    hist["Rank"] = hist["Rank"].astype(int)
+    hist["Fee"] = hist["Fee"].astype(int)
     hist["Branch"] = hist["Branch"].apply(normalize_branch)
     hist["Campus"] = hist["Campus"].apply(normalize_campus)
     hist = hist.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
 
     records = [
         {
-            "rank":   int(row["Rank"]),
+            "rank": int(row["Rank"]),
             "campus": row["Campus"],
             "branch": row["Branch"],
-            "fee":    int(row["Fee"]),
+            "fee": int(row["Fee"]),
             "source": "historical",
         }
         for _, row in hist.iterrows()
     ]
     ok = db.upsert_records(records)
-    n  = len(records) if ok else 0
+    n = len(records) if ok else 0
     print(f"[load] ✅ Seeded {n:,} historical records")
     return n
 
@@ -234,23 +238,26 @@ def _seed_historical() -> int:
 # SYNC GOOGLE FORM RESPONSES  (safe to re-run)
 # =====================================================
 
+
 def _sync_form_responses() -> int:
     """
     Pull latest Google Form responses and upsert into Supabase.
     Returns the number of valid rows sent.
     """
     try:
-        sheet    = _gs_client.open_by_url(SPREADSHEET_URL).sheet1
-        raw      = sheet.get_all_records()
+        sheet = _gs_client.open_by_url(SPREADSHEET_URL).sheet1
+        raw = sheet.get_all_records()
         if not raw:
             return 0
 
-        df = pd.DataFrame(raw).rename(columns={
-            "VITEEE Rank":  "Rank",
-            "Campus":       "Campus",
-            "Branch":       "Branch",
-            "Fee Category": "Fee",
-        })
+        df = pd.DataFrame(raw).rename(
+            columns={
+                "VITEEE Rank": "Rank",
+                "Campus": "Campus",
+                "Branch": "Branch",
+                "Fee Category": "Fee",
+            }
+        )
 
         # Keep only the four needed columns (extra form fields ignored)
         for col in ["Rank", "Campus", "Branch", "Fee"]:
@@ -260,14 +267,11 @@ def _sync_form_responses() -> int:
         df = df[["Rank", "Campus", "Branch", "Fee"]].copy()
 
         df["Rank"] = pd.to_numeric(df["Rank"], errors="coerce")
-        df["Fee"]  = (
-            df["Fee"].astype(str)
-            .str.extract(r"(\d+)", expand=False)
-        )
+        df["Fee"] = df["Fee"].astype(str).str.extract(r"(\d+)", expand=False)
         df["Fee"] = pd.to_numeric(df["Fee"], errors="coerce")
         df = df.dropna()
         df["Rank"] = df["Rank"].astype(int)
-        df["Fee"]  = df["Fee"].astype(int)
+        df["Fee"] = df["Fee"].astype(int)
         df["Branch"] = df["Branch"].apply(normalize_branch)
         df["Campus"] = df["Campus"].apply(normalize_campus)
         df = df[df["Fee"].apply(_valid_fee) & df["Rank"].apply(_valid_rank)]
@@ -275,10 +279,10 @@ def _sync_form_responses() -> int:
 
         records = [
             {
-                "rank":   int(row["Rank"]),
+                "rank": int(row["Rank"]),
                 "campus": row["Campus"],
                 "branch": row["Branch"],
-                "fee":    int(row["Fee"]),
+                "fee": int(row["Fee"]),
                 "source": "form",
             }
             for _, row in df.iterrows()
@@ -302,8 +306,8 @@ _sync_form_responses()
 _hist = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
 _hist.columns = ["Rank", "Campus", "Branch", "Fee"]
 _hist = _hist.dropna()
-_hist["Rank"]   = _hist["Rank"].astype(int)
-_hist["Fee"]    = _hist["Fee"].astype(int)
+_hist["Rank"] = _hist["Rank"].astype(int)
+_hist["Fee"] = _hist["Fee"].astype(int)
 _hist["Branch"] = _hist["Branch"].apply(normalize_branch)
 _hist["Campus"] = _hist["Campus"].apply(normalize_campus)
 _hist["source"] = "historical"
@@ -317,7 +321,9 @@ master_df = (
     .reset_index(drop=True)
 )
 
-print(f"[load] ✅ master_df: {len(master_df):,} rows ({len(_hist):,} Excel + {len(_sb):,} Supabase)")
+print(
+    f"[load] ✅ master_df: {len(master_df):,} rows ({len(_hist):,} Excel + {len(_sb):,} Supabase)"
+)
 
 # Safety fallback: if Supabase returned nothing, load directly from Excel
 # so the app stays functional while the DB connection is investigated
@@ -326,8 +332,8 @@ if master_df.empty:
     _fb = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
     _fb.columns = ["Rank", "Campus", "Branch", "Fee"]
     _fb = _fb.dropna()
-    _fb["Rank"]   = _fb["Rank"].astype(int)
-    _fb["Fee"]    = _fb["Fee"].astype(int)
+    _fb["Rank"] = _fb["Rank"].astype(int)
+    _fb["Fee"] = _fb["Fee"].astype(int)
     _fb["Branch"] = _fb["Branch"].apply(normalize_branch)
     _fb["Campus"] = _fb["Campus"].apply(normalize_campus)
     master_df = _fb.sort_values("Rank").reset_index(drop=True)
@@ -356,25 +362,25 @@ for _, _row in master_df.iterrows():
 
 cutoffs: dict[tuple, dict] = {}
 for _key, _ranks in _groups.items():
-    _n   = len(_ranks)
+    _n = len(_ranks)
     _srt = sorted(_ranks)
     # 90th-percentile index (clamp to last element)
     _p90_idx = min(int(_n * 0.9), _n - 1)
     cutoffs[_key] = {
         "closing_rank": _srt[_p90_idx],
-        "true_max":     _srt[-1],
-        "std_dev":      int(statistics.stdev(_srt)) if _n >= 2 else 0,
-        "responses":    _n,
+        "true_max": _srt[-1],
+        "std_dev": int(statistics.stdev(_srt)) if _n >= 2 else 0,
+        "responses": _n,
     }
 
 print(
-    f"[load] ✅ cutoffs: {len(cutoffs)} group entries "
-    f"(90th-pct + true_max + std_dev)"
+    f"[load] ✅ cutoffs: {len(cutoffs)} group entries (90th-pct + true_max + std_dev)"
 )
 
 # =====================================================
 # PUBLIC API  (called by app.py)
 # =====================================================
+
 
 def submit_report(
     user_rank,
@@ -383,7 +389,7 @@ def submit_report(
     fee,
     probability,
     chance,
-    report_type,       # ← now a separate param (not buried in reason_text)
+    report_type,  # ← now a separate param (not buried in reason_text)
     reason_text="",
 ) -> bool:
     """Persist one user prediction report to Supabase."""
@@ -402,3 +408,8 @@ def submit_report(
 def get_reports():
     """Fetch all reports from Supabase for the admin panel."""
     return db.fetch_reports()
+
+
+def delete_report(report_id: int) -> bool:
+    """Delete a report by ID from Supabase."""
+    return db.delete_report(report_id)
