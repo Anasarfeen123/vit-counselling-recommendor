@@ -1,0 +1,21 @@
+rank,campus,branch,fee,source
+1,VIT Vellore,CSE Core,1,historical
+2,VIT Vellore,CSE Core,1,historical
+3,VIT Vellore,CSE Core,1,historical
+5,VIT Vellore,CSE Core,2,historical
+7,VIT Vellore,CSE Core,2,historical
+8,VIT Vellore,CSE Core,2,historical
+10,VIT Vellore,CSE Core,3,historical
+12,VIT Chennai,CSE Core,1,historical
+15,VIT Chennai,CSE Core,1,historical
+18,VIT Chennai,CSE Core,2,historical
+20,VIT Chennai,ECE,1,historical
+25,VIT Chennai,ECE,2,historical
+30,VIT Pune,CS,1,historical
+35,VIT Pune,IT,2,historical
+40,VIT Amravati,CSE,3,historical
+45,VIT Amravati,IT,2,form
+50,VIT Vellore,CSE SPEC,1,form
+55,VIT Vellore,Mechanical,3,form
+60,VIT Chennai,Civil,4,form
+65,VIT Pune,ECE,3,form

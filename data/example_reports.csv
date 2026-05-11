@@ -1,0 +1,11 @@
+user_rank,campus,branch,fee_category,predicted_probability,predicted_chance,report_type,reason_text
+1,VIT Vellore,CSE Core,1,95.5,Safe,wrong_cutoff,Expected cutoff to be higher based on previous years
+5,VIT Vellore,CSE Core,2,78.3,Moderate,prob_high,Probability calculation seemed inflated for this rank
+10,VIT Chennai,CSE Core,1,92.1,Safe,got_allotted,Successfully allotted as predicted
+15,VIT Chennai,CSE Core,1,60.5,Dream,prob_low,Got allotted despite lower probability prediction
+20,VIT Chennai,ECE,2,75.0,Moderate,not_allotted,Did not get allotted but probability was moderate
+25,VIT Pune,CS,1,88.5,Safe,wrong_cutoff,Cutoff was lower than historical data suggests
+30,VIT Amravati,IT,2,45.0,Dream,prob_low,Unexpectedly got allotted with very low probability
+35,VIT Vellore,CSE SPEC,1,70.0,Moderate,prob_high,Recommendation too optimistic
+40,VIT Chennai,Civil,4,50.0,Very Unlikely,other,General feedback on prediction accuracy
+50,VIT Pune,ECE,3,80.0,Moderate,got_allotted,Correctly predicted allotment

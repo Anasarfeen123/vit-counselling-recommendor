@@ -96,60 +96,69 @@ THEMES = {
         "report_success_text": "#15803d",
     },
     "Dark (Beta)": {
-        "bg": "#0b1120",
-        "surface": "#172033",
-        "input": "#1e2d45",
-        "text": "#f1f5f9",
-        "muted": "#94a3b8",
-        "soft": "#64748b",
-        "border": "#2d4060",
-        "primary": "#818cf8",
-        "primary_dark": "#a5b4fc",
-        "header": "rgba(11,17,32,0.97)",
-        "shadow": "0 8px 30px rgba(0,0,0,0.35)",
-        "info_bg": "#1e3a5f",
-        "info_border": "#3b82f6",
-        "info_text": "#dbeafe",
-        "tag_bg": "#312e81",
+        # Base surfaces — slightly warmer deep blue
+        "bg": "#080e1a",
+        "surface": "#0f1d2e",
+        "input": "#162436",
+        "text": "#e8edf5",
+        "muted": "#8b9db5",
+        "soft": "#556070",
+        "border": "#1e3248",
+        # Brand colour — vivid indigo that pops on dark
+        "primary": "#7c8dfa",
+        "primary_dark": "#a0adfb",
+        "header": "rgba(8,14,26,0.97)",
+        "shadow": "0 8px 32px rgba(0,0,0,0.5)",
+        # Info / alerts
+        "info_bg": "#0f2744",
+        "info_border": "#2563eb",
+        "info_text": "#bfdbfe",
+        # Tags
+        "tag_bg": "#1e1b4b",
         "tag_text": "#c7d2fe",
-        "grid": "#1e3048",
-        "axis": "#334155",
-        "legend_bg": "rgba(23,32,51,0.95)",
-        "hover_bg": "#f1f5f9",
-        "hover_text": "#0f172a",
-        "bar_bg": "#1e3048",
-        "chip_bg": "#1a2a40",
-        "chip_good_bg": "#052e16",
-        "chip_good_text": "#4ade80",
-        "chip_warn_bg": "#3b1e06",
+        # Chart helpers
+        "grid": "#182840",
+        "axis": "#253848",
+        "legend_bg": "rgba(15,29,46,0.95)",
+        "hover_bg": "#e8edf5",
+        "hover_text": "#080e1a",
+        "bar_bg": "#182840",
+        # Chips
+        "chip_bg": "#12223a",
+        "chip_good_bg": "#062011",
+        "chip_good_text": "#34d399",
+        "chip_warn_bg": "#2d1a04",
         "chip_warn_text": "#fbbf24",
-        "chip_risk_bg": "#3b0a0a",
+        "chip_risk_bg": "#2d0a0a",
         "chip_risk_text": "#f87171",
-        "safe_color": "#4ade80",
+        # Status colours — slightly more vivid
+        "safe_color": "#34d399",
         "moderate_color": "#fbbf24",
         "dream_color": "#f87171",
-        "badge_safe_bg": "#14532d",
-        "badge_safe_text": "#bbf7d0",
-        "badge_moderate_bg": "#713f12",
-        "badge_moderate_text": "#fef9c3",
-        "badge_dream_bg": "#7f1d1d",
+        # Badges
+        "badge_safe_bg": "#064e2b",
+        "badge_safe_text": "#a7f3d0",
+        "badge_moderate_bg": "#5c3207",
+        "badge_moderate_text": "#fef3c7",
+        "badge_dream_bg": "#6b1010",
         "badge_dream_text": "#fecaca",
-        "safe_bg": "#052e16",
-        "safe_border": "#16a34a",
-        "safe_text": "#bbf7d0",
-        "moderate_bg": "#3b1e06",
+        # Context banners
+        "safe_bg": "#062011",
+        "safe_border": "#059669",
+        "safe_text": "#a7f3d0",
+        "moderate_bg": "#2d1a04",
         "moderate_border": "#d97706",
-        "moderate_text": "#fef9c3",
-        "dream_bg": "#3b0a0a",
+        "moderate_text": "#fef3c7",
+        "dream_bg": "#2d0a0a",
         "dream_border": "#dc2626",
         "dream_text": "#fecaca",
-        # Report panel colours
-        "report_bg": "#1a2a40",
-        "report_border": "#2d4060",
-        "report_header_bg": "#172033",
-        "report_success_bg": "#052e16",
-        "report_success_border": "#16a34a",
-        "report_success_text": "#4ade80",
+        # Report panel
+        "report_bg": "#101f30",
+        "report_border": "#1e3248",
+        "report_header_bg": "#0f1d2e",
+        "report_success_bg": "#062011",
+        "report_success_border": "#059669",
+        "report_success_text": "#34d399",
     },
 }
 THEMES["Dark"] = THEMES["Dark (Beta)"]
@@ -1021,6 +1030,136 @@ st.markdown(
     .empty-state-icon,
     .empty-state-title,
     .empty-state-sub {{ display: none; }}
+
+    /* ── Keyframe animations ─────────────────────────────────────── */
+    @keyframes vit-fade-up {{
+        from {{ opacity: 0; transform: translateY(10px); }}
+        to   {{ opacity: 1; transform: translateY(0); }}
+    }}
+    @keyframes vit-fade-in {{
+        from {{ opacity: 0; }}
+        to   {{ opacity: 1; }}
+    }}
+    @keyframes vit-slide-right {{
+        from {{ opacity: 0; transform: translateX(-8px); }}
+        to   {{ opacity: 1; transform: translateX(0); }}
+    }}
+    @keyframes vit-bar-grow {{
+        from {{ clip-path: inset(0 100% 0 0 round 3px); }}
+        to   {{ clip-path: inset(0 0% 0 0 round 3px); }}
+    }}
+    @keyframes vit-scale-in {{
+        from {{ opacity: 0; transform: scale(0.88); }}
+        to   {{ opacity: 1; transform: scale(1); }}
+    }}
+    @keyframes vit-pulse-border {{
+        0%, 100% {{ box-shadow: 0 0 0 0 var(--vit-primary)00; }}
+        50%       {{ box-shadow: 0 0 0 3px var(--vit-primary)22; }}
+    }}
+
+    /* ── Apply animations ────────────────────────────────────────── */
+    .vit-header    {{ animation: vit-fade-up 0.4s ease both; }}
+    .info-strip    {{ animation: vit-fade-in 0.5s ease both; animation-delay: 0.1s; }}
+    .metric-grid   {{ animation: vit-fade-up 0.35s ease both; animation-delay: 0.05s; }}
+    .cat-overview  {{ animation: vit-fade-in 0.4s ease both; animation-delay: 0.08s; }}
+    .result-row    {{ animation: vit-fade-up 0.28s ease both; }}
+    .context-banner {{ animation: vit-fade-in 0.3s ease both; }}
+    .empty-state   {{ animation: vit-fade-in 0.3s ease both; }}
+    .section-heading {{ animation: vit-slide-right 0.22s ease both; }}
+    .report-card   {{ animation: vit-fade-up 0.2s ease both; }}
+
+    /* Category pill counts pop in with a slight bounce */
+    .cat-pill-count {{
+        animation: vit-scale-in 0.35s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+    }}
+    .cat-overview .cat-pill:nth-child(1) .cat-pill-count {{ animation-delay: 0.06s; }}
+    .cat-overview .cat-pill:nth-child(2) .cat-pill-count {{ animation-delay: 0.12s; }}
+    .cat-overview .cat-pill:nth-child(3) .cat-pill-count {{ animation-delay: 0.18s; }}
+    .cat-overview .cat-pill:nth-child(4) .cat-pill-count {{ animation-delay: 0.24s; }}
+
+    /* Probability bar — reveal left to right */
+    .prob-bar-fill {{
+        animation: vit-bar-grow 0.7s cubic-bezier(0.22, 1, 0.36, 1) both;
+        animation-delay: 0.15s;
+    }}
+
+    /* Respect system reduced-motion preference */
+    @media (prefers-reduced-motion: reduce) {{
+        *, *::before, *::after {{
+            animation-duration: 0.01ms !important;
+            transition-duration: 0.01ms !important;
+        }}
+    }}
+
+    /* ── Dark mode: deeper segmented control fix ─────────────────── */
+    /* Target every possible DOM path Streamlit 1.5x might use */
+    [data-testid="stSegmentedControl"] > div > div,
+    [data-testid="stSegmentedControl"] > div > div > div {{
+        background-color: var(--vit-input) !important;
+        border-color: var(--vit-border) !important;
+    }}
+    [data-testid="stSegmentedControl"] label span,
+    [data-testid="stSegmentedControl"] button span {{
+        color: inherit !important;
+    }}
+
+    /* ── Result card polish ───────────────────────────────────────── */
+    /* Badge glow on hover for reach/dream cards */
+    .result-row.dream:hover {{
+        border-left-color: var(--vit-dream-color) !important;
+        box-shadow: 0 8px 32px rgba(239,68,68,0.12), var(--vit-shadow);
+    }}
+    .result-row.safe:hover {{
+        border-left-color: var(--vit-safe-color) !important;
+        box-shadow: 0 8px 32px rgba(74,222,128,0.10), var(--vit-shadow);
+    }}
+    .result-row.moderate:hover {{
+        border-left-color: var(--vit-moderate-color) !important;
+        box-shadow: 0 8px 32px rgba(251,191,36,0.10), var(--vit-shadow);
+    }}
+
+    /* Probability number — tighter letter spacing for big digits */
+    .prob-number {{
+        letter-spacing: -0.04em;
+        font-variant-numeric: tabular-nums;
+    }}
+
+    /* Chip row slight gap increase for breathing room */
+    .chip-row {{ gap: 0.6rem; }}
+
+    /* ── Dark mode: sidebar improvements ─────────────────────────── */
+    [data-testid="stSidebar"] [data-testid="stMarkdownContainer"] h3 {{
+        font-size: 0.78rem !important;
+        font-weight: 700 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 0.08em !important;
+        color: var(--vit-soft) !important;
+        margin: 1.1rem 0 0.5rem !important;
+    }}
+
+    /* ── Cat-overview divider line ────────────────────────────────── */
+    .cat-pill {{
+        position: relative;
+    }}
+
+    /* ── Admin stat cards ─────────────────────────────────────────── */
+    .admin-stat-card {{
+        transition: transform 0.18s, box-shadow 0.18s;
+    }}
+    .admin-stat-card:hover {{
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    }}
+
+    /* ── Stagger result rows inside each section ─────────────────── */
+    /* Works on result-rows that are siblings or near-siblings */
+    [data-testid="stVerticalBlock"] .result-row {{ animation-delay: 0.04s; }}
+
+    /* ── Rank display in sidebar ──────────────────────────────────── */
+    .rank-big {{
+        font-variant-numeric: tabular-nums;
+        letter-spacing: -0.03em;
+    }}
 
     /* ── Responsive ── */
     @media (max-width: 900px) {{

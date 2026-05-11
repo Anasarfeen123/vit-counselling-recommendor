@@ -353,3 +353,9 @@ def fetch_reports() -> Optional[pd.DataFrame]:
     except Exception as exc:
         print(f"[db] fetch_reports error: {exc}")
         return None
+
+
+# Alias for admin app compatibility
+def fetch_all_reports() -> Optional[pd.DataFrame]:
+    """Alias for fetch_reports() — returns all reports in admin-friendly format."""
+    return fetch_reports()
