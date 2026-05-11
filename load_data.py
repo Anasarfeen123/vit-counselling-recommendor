@@ -199,16 +199,18 @@ def _valid_rank(rank) -> bool:
 @st.cache_resource(show_spinner=False)
 def _seed_historical() -> int:
     """
-    Load historical Excel data into Supabase.
-    Guarded by cache_resource so it executes only once per server process.
-    Returns the number of records seeded (or existing count if already done).
-    """
-    existing = db.count_records()
-    if existing > 100:
-        print(f"[load] Supabase already has {existing:,} records — skipping seed")
-        return existing
+    Sync every row from the local Excel file into Supabase via idempotent upsert.
 
-    print("[load] 🌱 Seeding historical data into Supabase …")
+    The upsert uses ON CONFLICT (rank, campus, branch, fee) DO NOTHING, so
+    re-running this is completely safe — existing rows are untouched and only
+    genuinely new rows are inserted.  The @st.cache_resource guard means this
+    runs exactly once per server process, which is the right cadence.
+
+    Previously this function was skipped when Supabase already had >100 rows,
+    which meant new rows added to the Excel file were never pushed to Supabase.
+    That guard has been removed.
+    """
+    print("[load] 🌱 Syncing Excel → Supabase (idempotent upsert) …")
     hist = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
     hist.columns = ["Rank", "Campus", "Branch", "Fee"]
     hist = hist.dropna()
@@ -230,7 +232,7 @@ def _seed_historical() -> int:
     ]
     ok = db.upsert_records(records)
     n = len(records) if ok else 0
-    print(f"[load] ✅ Seeded {n:,} historical records")
+    print(f"[load] ✅ Excel → Supabase sync complete: {n:,} rows upserted")
     return n
 
 

@@ -351,29 +351,18 @@ st.markdown(
         align-items: center;
         gap: 16px;
         padding: 1.5rem 1.75rem;
-        background: linear-gradient(135deg, var(--vit-surface) 60%, color-mix(in srgb, var(--vit-surface), var(--vit-primary) 6%) 100%);
+        background: var(--vit-surface);
         border: 1px solid var(--vit-border);
-        border-radius: 14px;
+        border-radius: 10px;
         margin-bottom: 1.25rem;
         box-shadow: var(--vit-shadow);
-        position: relative;
-        overflow: hidden;
-    }}
-    .vit-header::after {{
-        content: "";
-        position: absolute;
-        bottom: 0; left: 0; right: 0;
-        height: 2px;
-        background: linear-gradient(90deg, var(--vit-primary), var(--vit-primary-dark), transparent);
-        opacity: 0.6;
     }}
     .vit-header-icon {{
-        width: 54px; height: 54px;
-        background: linear-gradient(135deg, var(--vit-primary), var(--vit-primary-dark));
-        border-radius: 12px;
+        width: 46px; height: 46px;
+        background: var(--vit-primary);
+        border-radius: 9px;
         display: flex; align-items: center; justify-content: center;
-        font-size: 1.65rem; flex-shrink: 0;
-        box-shadow: 0 4px 14px color-mix(in srgb, var(--vit-primary) 50%, transparent);
+        font-size: 1.45rem; flex-shrink: 0;
     }}
     .vit-header h1 {{ margin: 0; font-size: 1.65rem; font-weight: 800; color: var(--vit-text); }}
     .vit-header p  {{ margin: 0.25rem 0 0; font-size: 0.95rem; color: var(--vit-muted); }}
@@ -401,13 +390,7 @@ st.markdown(
         align-items: center;
         gap: 0.5rem;
     }}
-    .section-heading::after {{
-        content: "";
-        flex: 1;
-        height: 1px;
-        background: var(--vit-border);
-        opacity: 0.6;
-    }}
+
 
     /* ── Sidebar section divider ── */
     .sidebar-section {{
@@ -431,11 +414,8 @@ st.markdown(
         transition: box-shadow 0.15s;
     }}
     .result-row:hover {{
-        box-shadow: 0 12px 36px rgba(15,23,42,0.14);
-        transform: translateY(-1px);
-        transition: box-shadow 0.18s, transform 0.18s;
+        box-shadow: 0 4px 16px rgba(15,23,42,0.08);
     }}
-    .result-row {{ transition: box-shadow 0.18s, transform 0.18s; }}
     .result-row.safe     {{ border-left-color: var(--vit-safe-color); }}
     .result-row.moderate {{ border-left-color: var(--vit-moderate-color); }}
     .result-row.dream    {{ border-left-color: var(--vit-dream-color); }}
@@ -477,8 +457,7 @@ st.markdown(
         transition: border-color 0.15s, box-shadow 0.15s;
     }}
     .chip:hover {{
-        border-color: var(--vit-primary) !important;
-        box-shadow: 0 0 0 2px var(--vit-primary)18;
+        border-color: var(--vit-soft) !important;
     }}
     .chip-label {{
         font-size: 0.72rem;
@@ -599,16 +578,10 @@ st.markdown(
     .metric-card {{
         background: var(--vit-surface);
         border: 1px solid var(--vit-border);
-        border-left: 3px solid var(--vit-primary);
         border-radius: 10px;
         padding: 1.1rem 1.4rem;
         min-height: 110px;
         box-shadow: var(--vit-shadow);
-        transition: transform 0.18s, box-shadow 0.18s;
-    }}
-    .metric-card:hover {{
-        transform: translateY(-2px);
-        box-shadow: 0 8px 28px rgba(0,0,0,0.13);
     }}
     .metric-card-label {{
         font-size: 0.72rem;
@@ -996,70 +969,58 @@ st.markdown(
         display: flex;
         background: var(--vit-surface);
         border: 1px solid var(--vit-border);
-        border-radius: 12px;
+        border-radius: 8px;
         overflow: hidden;
-        margin-bottom: 1.75rem;
-        box-shadow: var(--vit-shadow);
+        margin-bottom: 1.5rem;
     }}
     .cat-pill {{
         flex: 1;
+        padding: 0.9rem 0.75rem 0.8rem;
+        border-right: 1px solid var(--vit-border);
         display: flex;
         flex-direction: column;
         align-items: center;
-        justify-content: center;
-        padding: 0.9rem 0.5rem 0.75rem;
-        gap: 0.15rem;
-        border-right: 1px solid var(--vit-border);
         text-align: center;
-        transition: background 0.15s;
-        cursor: default;
+        gap: 0.2rem;
     }}
     .cat-pill:last-child {{ border-right: none; }}
-    .cat-pill:hover {{ background: var(--vit-input); }}
-    .cat-pill-icon {{ font-size: 1.05rem; line-height: 1; }}
+    .cat-pill-icon {{ display: none; }}
     .cat-pill-count {{
-        font-size: 1.75rem;
-        font-weight: 800;
+        font-size: 1.55rem;
+        font-weight: 700;
         line-height: 1;
         letter-spacing: -0.03em;
     }}
     .cat-pill-label {{
-        font-size: 0.65rem;
-        font-weight: 700;
+        font-size: 0.64rem;
+        color: var(--vit-muted);
         text-transform: uppercase;
         letter-spacing: 0.07em;
-        opacity: 0.85;
+        font-weight: 600;
     }}
 
-    /* ── Empty state card ── */
+    /* ── Empty state ── */
     .empty-state {{
-        text-align: center;
-        padding: 1.75rem 1.5rem 1.6rem;
-        background: var(--vit-surface);
-        border: 1.5px dashed var(--vit-border);
-        border-radius: 10px;
+        padding: 1.5rem;
+        background: transparent;
+        border: 1px dashed var(--vit-border);
+        border-radius: 8px;
+        color: var(--vit-muted);
+        font-size: 0.83rem;
+        line-height: 1.6;
         margin-bottom: 0.9rem;
-        opacity: 0.85;
+        text-align: center;
     }}
-    .empty-state-icon {{
-        font-size: 1.8rem;
+    .empty-state strong {{
         display: block;
-        margin-bottom: 0.45rem;
-        line-height: 1;
-    }}
-    .empty-state-title {{
-        font-size: 0.9rem;
-        font-weight: 700;
         color: var(--vit-text);
+        font-weight: 600;
+        font-size: 0.88rem;
         margin-bottom: 0.3rem;
     }}
-    .empty-state-sub {{
-        font-size: 0.78rem;
-        color: var(--vit-muted);
-        line-height: 1.55;
-        max-width: 420px;
-        margin: 0 auto;
-    }}
+    .empty-state-icon,
+    .empty-state-title,
+    .empty-state-sub {{ display: none; }}
 
     /* ── Responsive ── */
     @media (max-width: 900px) {{
