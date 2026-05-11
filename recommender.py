@@ -274,7 +274,8 @@ def calculate_recommendation_score(probability, responses, fee, campus, branch):
 # =====================================================
 
 def get_chance_priority(chance):
-    return {"Safe": 0, "Moderate": 1, "Dream": 2, "Very Unlikely": 3}.get(chance, 9)
+    # Order: Dream (Reach) → Moderate (Backup) → Safe → Very Unlikely
+    return {"Dream": 0, "Moderate": 1, "Safe": 2, "Very Unlikely": 3}.get(chance, 9)
 
 
 # =====================================================
@@ -347,10 +348,10 @@ def recommend(user_rank, sort_by="recommended"):
     #   AP / Bhopal only appear after all Vellore+Chennai rows
     sort_keys = {
         "recommended": lambda x: (
-            get_chance_priority(x["chance"]),                  # 1. Safe first
-            x["fee_priority"],                                 # 2. Cat1 → Cat2 → Cat3 ...
-            x["branch_priority"],                              # 3. Core > AIML > DS > IoT ...
-            x["campus_tier"],                                  # 4. Vellore(0) before Chennai(1) before AP/Bhopal
+            x["campus_tier"],                                  # 1. Vellore(0) before Chennai(1) before AP/Bhopal(3/5)
+            get_chance_priority(x["chance"]),                  # 2. Dream → Moderate → Safe → Very Unlikely
+            x["fee_priority"],                                 # 3. Cat1 → Cat2 → Cat3 ...
+            x["branch_priority"],                              # 4. Core > AIML > DS > IoT ...
             x["campus_priority"],                              # 5. Fine-grain tiebreak within same tier
             -x["probability"],                                 # 6. Higher probability first
             -x["responses"],                                   # 7. More data first
@@ -358,32 +359,40 @@ def recommend(user_rank, sort_by="recommended"):
             x["branch"],                                       # 9. Alphabetic stability
         ),
         "probability": lambda x: (
-            -x["probability"],
             x["campus_tier"],
+            -x["probability"],
+            x["branch_priority"],
+            x["fee_priority"],
+            x["campus_priority"],
+            -x["responses"],
+        ),
+        "probability_asc": lambda x: (
+            x["campus_tier"],
+            x["probability"],
             x["branch_priority"],
             x["fee_priority"],
             x["campus_priority"],
             -x["responses"],
         ),
         "confidence": lambda x: (
-            -x["confidence_pct"],
             x["campus_tier"],
+            -x["confidence_pct"],
             x["branch_priority"],
             x["fee_priority"],
             x["campus_priority"],
             -x["probability"],
         ),
         "responses": lambda x: (
-            -x["responses"],
             x["campus_tier"],
+            -x["responses"],
             x["branch_priority"],
             x["fee_priority"],
             x["campus_priority"],
             -x["probability"],
         ),
         "closing_rank": lambda x: (
-            -x["closing_rank"],
             x["campus_tier"],
+            -x["closing_rank"],
             x["branch_priority"],
             x["fee_priority"],
             x["campus_priority"],

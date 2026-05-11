@@ -601,6 +601,7 @@ st.sidebar.markdown(
     unsafe_allow_html=True
 )
 
+
 sort_option = st.sidebar.selectbox(
     "Sort results by",
     ["Recommended", "Probability", "Fee Category", "Confidence Level", "Number of Responses", "Closing Rank"],
@@ -613,6 +614,16 @@ sort_mapping = {
     "Number of Responses": "responses",
     "Closing Rank": "closing_rank",
 }
+
+# Add radio for probability order
+prob_order = "desc"
+if sort_option == "Probability":
+    prob_order = st.sidebar.radio(
+        "Order",
+        ["High to Low (default)", "Low to High (riskier first)"],
+        index=0,
+        help="Choose 'Low to High' to see riskier options first."
+    )
 
 results_limit = st.sidebar.slider("Max results per category", min_value=5, max_value=30, value=10, step=5)
 
@@ -803,7 +814,13 @@ def section_header(icon, title, count):
 # =====================================================
 
 if predict_button:
-    all_results = recommend(rank, sort_by=sort_mapping[sort_option])
+    if sort_option == "Probability":
+        if prob_order == "Low to High (riskier first)":
+            all_results = recommend(rank, sort_by="probability_asc")
+        else:
+            all_results = recommend(rank, sort_by="probability")
+    else:
+        all_results = recommend(rank, sort_by=sort_mapping[sort_option])
     selected_fees_int = [int(f) for f in selected_fees]
 
     filtered_results = [
