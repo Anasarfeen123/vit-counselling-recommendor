@@ -759,7 +759,6 @@ def result_row_html(r, rank, kind):
     campus = escape(r["campus"])
     sd_val = r.get("std_dev", 0)
 
-    # Build spread chip separately — never inline conditionals inside f-strings
     if sd_val > 1500:
         spread_chip = (
             '<div class="chip warn">'
@@ -858,9 +857,9 @@ if predict_button:
                 <div class="metric-card-sub">of {rank_stats['total_options']} overall</div>
             </div>
             <div class="metric-card">
-                <div class="metric-card-label">Safe options</div>
-                <div class="metric-card-value">{len(safe_list)}</div>
-                <div class="metric-card-sub {'green' if safe_list else ''}">{"High probability seats" if safe_list else "None in current filters"}</div>
+                <div class="metric-card-label">Reach options</div>
+                <div class="metric-card-value">{len(dream_list)}</div>
+                <div class="metric-card-sub">{"High-risk, high-reward" if dream_list else "None in current filters"}</div>
             </div>
             <div class="metric-card">
                 <div class="metric-card-label">Avg probability</div>
@@ -870,17 +869,17 @@ if predict_button:
         </div>
         """, unsafe_allow_html=True)
 
-        # ── Safe ─────────────────────────────────────────────
-        if safe_list:
-            section_header("✅", "Primary picks — strong rank fit", len(safe_list))
+        # ── Dream (Reach) — shown FIRST ──────────────────────
+        if dream_list:
+            section_header("🔥", "Reach picks — possible but risky", len(dream_list))
             st.markdown(
-                '<div class="context-banner safe">Your rank sits comfortably inside these cutoffs. Prioritise by campus preference and fee category.</div>',
+                '<div class="context-banner dream">Outside or near the observed cutoff — possible but a stretch. Add these to aim high, but always pair with safer backups.</div>',
                 unsafe_allow_html=True
             )
-            for r in safe_list[:results_limit]:
-                st.markdown(result_row_html(r, rank, "safe"), unsafe_allow_html=True)
+            for r in dream_list[:results_limit]:
+                st.markdown(result_row_html(r, rank, "dream"), unsafe_allow_html=True)
 
-        # ── Moderate ─────────────────────────────────────────
+        # ── Moderate — shown SECOND ───────────────────────────
         if moderate_list:
             section_header("⚡", "Backup picks — possible but tighter", len(moderate_list))
             st.markdown(
@@ -890,17 +889,17 @@ if predict_button:
             for r in moderate_list[:results_limit]:
                 st.markdown(result_row_html(r, rank, "moderate"), unsafe_allow_html=True)
 
-        # ── Dream ────────────────────────────────────────────
-        if dream_list:
-            section_header("🔥", "Reach picks — low probability", len(dream_list))
+        # ── Safe — shown THIRD ────────────────────────────────
+        if safe_list:
+            section_header("✅", "Primary picks — strong rank fit", len(safe_list))
             st.markdown(
-                '<div class="context-banner dream">Outside or near the observed cutoff. Add sparingly — list these last in your preference order.</div>',
+                '<div class="context-banner safe">Your rank sits comfortably inside these cutoffs. Prioritise by campus preference and fee category.</div>',
                 unsafe_allow_html=True
             )
-            for r in dream_list[:results_limit]:
-                st.markdown(result_row_html(r, rank, "dream"), unsafe_allow_html=True)
+            for r in safe_list[:results_limit]:
+                st.markdown(result_row_html(r, rank, "safe"), unsafe_allow_html=True)
 
-        # ── Very Unlikely ─────────────────────────────────────
+        # ── Very Unlikely — shown LAST ────────────────────────
         if not safe_list and not moderate_list and not dream_list:
             section_header("⛔", "No viable options for these filters", len(unlikely_list))
             st.markdown(
@@ -1068,9 +1067,9 @@ with c3: st.info("🔄 Accuracy improves with more responses")
 st.markdown("""
 <div class="footer-note" style="font-size:0.84rem;margin-top:1rem;line-height:1.8;">
 <strong>How to read the results</strong><br>
-<b>Safe (75%+)</b> — Very likely to get a seat. These should be your primary choices.<br>
+<b>Reach (15–40%)</b> — Shown first. Outside or near the cutoff — aim high but pair with backups.<br>
 <b>Moderate (40–75%)</b> — Possible but not guaranteed. Use as backups.<br>
-<b>Reach (15–40%)</b> — Unlikely. Include only as last-resort options.<br><br>
+<b>Safe (75%+)</b> — Very likely to get a seat. These are your strongest options.<br><br>
 <strong>About the model</strong><br>
 Closing ranks use the <strong>90th percentile</strong> of observed data (not the maximum) so a single outlier doesn't inflate the cutoff. Standard deviation of observed ranks is factored in — options with volatile historical cutoffs receive lower probabilities. Both the historical Excel dataset and live Google Form responses are merged and deduplicated before analysis.<br><br>
 <strong style="color:#e11d48;">Disclaimer</strong>: <em>This tool is <u>unofficial</u> and not affiliated with VIT or any official counselling authority. All predictions are based on historical data and statistical models, and may not reflect actual results. The recommendations are for informational purposes only and are not perfect or guaranteed. Always verify with official VIT counselling resources before making any final decisions. Use at your own discretion.</em>
