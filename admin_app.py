@@ -238,7 +238,12 @@ def admin_panel(title: str, body: str) -> None:
 
 def data_year_options() -> list[int]:
     years = set(db.get_available_data_years())
-    years.update(load_data.configured_data_years())
+    configured_data_years = getattr(load_data, "configured_data_years", None)
+    if callable(configured_data_years):
+        years.update(configured_data_years())
+    else:
+        years.add(getattr(load_data, "ACTIVE_DATA_YEAR", db.DEFAULT_DATA_YEAR))
+        years.add(db.DEFAULT_DATA_YEAR)
     return sorted(years)
 
 
