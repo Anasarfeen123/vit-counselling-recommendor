@@ -1,11 +1,31 @@
-# 📑 Admin Dashboard - Complete Index
+# Documentation Index
+
+## Main Project Docs
+
+- [README.md](README.md) - Project overview, credits, setup, usage, and disclaimer.
+- [WIKI.md](WIKI.md) - Future maintainer guide for architecture, data flow, yearly setup, and operations.
+- [CONTRIBUTING.md](CONTRIBUTING.md) - How to contribute safely and what to verify before submitting changes.
+
+## Credits
+
+Created and maintained by:
+
+- Anas Arfeen
+- Daksh Sablok
+
+---
+
+# Admin Dashboard - Complete Index
 
 ## 🎯 Start Here
 
 **First time?** Start with this document, then read:
-1. [ADMIN_SETUP_COMPLETE.md](ADMIN_SETUP_COMPLETE.md) - 5 min setup overview
-2. [ADMIN_QUICK_START.md](ADMIN_QUICK_START.md) - Getting started guide
-3. [admin_app.py](admin_app.py) - The application itself
+1. [README.md](README.md) - Project overview and setup
+2. [WIKI.md](WIKI.md) - Future maintainer guide
+3. [CONTRIBUTING.md](CONTRIBUTING.md) - Contribution workflow
+4. [ADMIN_SETUP_COMPLETE.md](ADMIN_SETUP_COMPLETE.md) - 5 min setup overview
+5. [ADMIN_QUICK_START.md](ADMIN_QUICK_START.md) - Getting started guide
+6. [admin_app.py](admin_app.py) - The application itself
 
 ---
 
@@ -45,6 +65,17 @@
   - Data model explanation
   - Data flow diagrams
   - Deployment options
+
+### Maintainers & Contributors
+- **[WIKI.md](WIKI.md)**
+  - How the predictor works
+  - How to add a new counselling year
+  - Data quality rules
+  - Release checklist
+- **[CONTRIBUTING.md](CONTRIBUTING.md)**
+  - Local setup
+  - Pull request checklist
+  - Data and UI contribution rules
 
 ---
 
