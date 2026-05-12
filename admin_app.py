@@ -13,6 +13,7 @@ Run with:
 """
 
 from datetime import datetime
+from html import escape
 import io
 import pandas as pd
 import plotly.express as px
@@ -44,6 +45,224 @@ def pie_chart_from_counts(counts: pd.Series, title: str) -> None:
     fig.update_layout(margin=dict(l=10, r=10, t=50, b=10), height=360)
     st.plotly_chart(fig, use_container_width=True)
 
+
+def _metric_card(label: str, value, sub: str = "", accent: str = "#2563eb") -> str:
+    label_html = escape(str(label))
+    value_html = escape(str(value))
+    sub_html = escape(str(sub))
+    accent_html = escape(str(accent), quote=True)
+    return (
+        f'<div class="admin-metric-card" style="--accent:{accent_html};">'
+        f'<div class="admin-metric-label">{label_html}</div>'
+        f'<div class="admin-metric-value">{value_html}</div>'
+        f'<div class="admin-metric-sub">{sub_html}</div>'
+        f"</div>"
+    )
+
+
+def render_metric_grid(cards: list[str]) -> None:
+    st.markdown(
+        f'<div class="admin-metric-grid">{"".join(cards)}</div>',
+        unsafe_allow_html=True,
+    )
+
+
+def section_title(title: str, subtitle: str = "") -> None:
+    st.markdown(
+        f"""
+        <div class="admin-section-title">
+            <h2>{escape(title)}</h2>
+            <p>{escape(subtitle)}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def _empty_issue_frame() -> pd.DataFrame:
+    return pd.DataFrame(
+        columns=[
+            "severity",
+            "issue",
+            "data_year",
+            "campus",
+            "branch",
+            "fee",
+            "rank",
+            "details",
+        ]
+    )
+
+
+def calculate_cutoff_order_issues(records: pd.DataFrame) -> pd.DataFrame:
+    if records.empty:
+        return _empty_issue_frame()
+
+    required = {"Rank", "Campus", "Branch", "Fee", "data_year"}
+    if not required.issubset(records.columns):
+        return _empty_issue_frame()
+
+    rows = []
+    clean = records.dropna(subset=["Rank", "Campus", "Branch", "Fee", "data_year"]).copy()
+    if clean.empty:
+        return _empty_issue_frame()
+
+    clean["Rank"] = pd.to_numeric(clean["Rank"], errors="coerce")
+    clean["Fee"] = pd.to_numeric(clean["Fee"], errors="coerce")
+    clean["data_year"] = pd.to_numeric(clean["data_year"], errors="coerce")
+    clean = clean.dropna(subset=["Rank", "Fee", "data_year"])
+
+    grouped = (
+        clean.groupby(["data_year", "Campus", "Branch", "Fee"])["Rank"]
+        .agg(
+            responses="count",
+            closing_rank=lambda s: int(sorted(s.astype(int))[min(int(len(s) * 0.9), len(s) - 1)]),
+        )
+        .reset_index()
+        .sort_values(["data_year", "Campus", "Branch", "Fee"])
+    )
+
+    for (year, campus, branch), group in grouped.groupby(["data_year", "Campus", "Branch"]):
+        previous = []
+        for _, current in group.sort_values("Fee").iterrows():
+            for lower in previous:
+                if int(lower["closing_rank"]) > int(current["closing_rank"]):
+                    rows.append(
+                        {
+                            "severity": "High",
+                            "issue": "Fee cutoff order conflict",
+                            "data_year": int(year),
+                            "campus": campus,
+                            "branch": branch,
+                            "fee": int(current["Fee"]),
+                            "rank": "",
+                            "details": (
+                                f"Cat {int(current['Fee'])} cutoff {int(current['closing_rank']):,} "
+                                f"is lower than Cat {int(lower['Fee'])} cutoff {int(lower['closing_rank']):,}."
+                            ),
+                        }
+                    )
+            previous.append(current)
+
+    return pd.DataFrame(rows) if rows else _empty_issue_frame()
+
+
+def build_data_quality_report(records: pd.DataFrame) -> pd.DataFrame:
+    if records.empty:
+        return _empty_issue_frame()
+
+    df = records.copy()
+    if "data_year" not in df.columns:
+        df["data_year"] = db.DEFAULT_DATA_YEAR
+
+    issues = []
+
+    rank_num = pd.to_numeric(df.get("Rank"), errors="coerce")
+    fee_num = pd.to_numeric(df.get("Fee"), errors="coerce")
+
+    invalid_rank = df[rank_num.isna() | (rank_num < 1) | (rank_num > 250000)]
+    for _, row in invalid_rank.iterrows():
+        issues.append(
+            {
+                "severity": "High",
+                "issue": "Invalid rank",
+                "data_year": row.get("data_year", ""),
+                "campus": row.get("Campus", ""),
+                "branch": row.get("Branch", ""),
+                "fee": row.get("Fee", ""),
+                "rank": row.get("Rank", ""),
+                "details": "Rank must be between 1 and 250,000.",
+            }
+        )
+
+    invalid_fee = df[fee_num.isna() | ~fee_num.isin([1, 2, 3, 4, 5])]
+    for _, row in invalid_fee.iterrows():
+        issues.append(
+            {
+                "severity": "High",
+                "issue": "Invalid fee category",
+                "data_year": row.get("data_year", ""),
+                "campus": row.get("Campus", ""),
+                "branch": row.get("Branch", ""),
+                "fee": row.get("Fee", ""),
+                "rank": row.get("Rank", ""),
+                "details": "Fee category must be 1, 2, 3, 4, or 5.",
+            }
+        )
+
+    for col in ["Campus", "Branch", "source"]:
+        if col in df.columns:
+            missing = df[df[col].isna() | (df[col].astype(str).str.strip() == "")]
+            for _, row in missing.iterrows():
+                issues.append(
+                    {
+                        "severity": "Medium",
+                        "issue": f"Missing {col}",
+                        "data_year": row.get("data_year", ""),
+                        "campus": row.get("Campus", ""),
+                        "branch": row.get("Branch", ""),
+                        "fee": row.get("Fee", ""),
+                        "rank": row.get("Rank", ""),
+                        "details": f"{col} is blank.",
+                    }
+                )
+
+    key_cols = ["Rank", "Campus", "Branch", "Fee", "data_year"]
+    if set(key_cols).issubset(df.columns):
+        duplicate_rows = df[df.duplicated(subset=key_cols, keep=False)]
+        for _, row in duplicate_rows.iterrows():
+            issues.append(
+                {
+                    "severity": "Medium",
+                    "issue": "Duplicate natural key",
+                    "data_year": row.get("data_year", ""),
+                    "campus": row.get("Campus", ""),
+                    "branch": row.get("Branch", ""),
+                    "fee": row.get("Fee", ""),
+                    "rank": row.get("Rank", ""),
+                    "details": "Same rank/campus/branch/fee/year appears more than once.",
+                }
+            )
+
+    if set(["Campus", "Branch", "Fee", "data_year"]).issubset(df.columns):
+        low_sample = (
+            df.groupby(["data_year", "Campus", "Branch", "Fee"])
+            .size()
+            .reset_index(name="responses")
+        )
+        low_sample = low_sample[low_sample["responses"] < 3]
+        for _, row in low_sample.iterrows():
+            issues.append(
+                {
+                    "severity": "Low",
+                    "issue": "Low sample size",
+                    "data_year": int(row["data_year"]),
+                    "campus": row["Campus"],
+                    "branch": row["Branch"],
+                    "fee": int(row["Fee"]),
+                    "rank": "",
+                    "details": f"Only {int(row['responses'])} response(s) for this option.",
+                }
+            )
+
+    cutoff_issues = calculate_cutoff_order_issues(df)
+    if not cutoff_issues.empty:
+        issues.extend(cutoff_issues.to_dict("records"))
+
+    return pd.DataFrame(issues) if issues else _empty_issue_frame()
+
+
+def normalize_uploaded_records_for_audit(df: pd.DataFrame) -> pd.DataFrame:
+    """Map import-template column names to the display names used by audits."""
+    return df.rename(
+        columns={
+            "rank": "Rank",
+            "campus": "Campus",
+            "branch": "Branch",
+            "fee": "Fee",
+        }
+    )
+
 def check_admin_password():
     """Simple admin authentication."""
     if "admin_authenticated" not in st.session_state:
@@ -74,11 +293,49 @@ def check_admin_password():
 
 st.markdown("""
     <style>
+        :root {
+            --admin-bg: #eef2f7;
+            --admin-surface: #ffffff;
+            --admin-surface-2: #f8fafc;
+            --admin-text: #0f172a;
+            --admin-muted: #64748b;
+            --admin-border: #dbe3ee;
+            --admin-primary: #2563eb;
+            --admin-primary-dark: #1d4ed8;
+            --admin-success: #16a34a;
+            --admin-warn: #d97706;
+            --admin-risk: #dc2626;
+            --admin-shadow: 0 12px 34px rgba(15,23,42,0.08);
+        }
+        @keyframes admin-rise {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        @keyframes admin-sheen {
+            from { transform: translateX(-130%) skewX(-18deg); opacity: 0; }
+            30% { opacity: .65; }
+            to { transform: translateX(230%) skewX(-18deg); opacity: 0; }
+        }
+        @keyframes admin-pulse {
+            0%, 100% { box-shadow: 0 0 0 0 rgba(37,99,235,0); }
+            50% { box-shadow: 0 0 0 5px rgba(37,99,235,0.14); }
+        }
         .stApp {
-            background: #f6f8fb;
+            background:
+                linear-gradient(90deg, rgba(148,163,184,0.11) 1px, transparent 1px),
+                linear-gradient(180deg, rgba(148,163,184,0.09) 1px, transparent 1px),
+                var(--admin-bg);
+            background-size: 44px 44px;
+            color: var(--admin-text);
+        }
+        [data-testid="stMainBlockContainer"] {
+            max-width: 1520px;
+            padding-top: 1.4rem;
+            padding-bottom: 3rem;
         }
         [data-testid="stSidebar"] {
-            background: #111827;
+            background: #0f172a;
+            border-right: 1px solid rgba(255,255,255,0.08);
         }
         [data-testid="stSidebar"] * {
             color: #f9fafb;
@@ -90,27 +347,45 @@ st.markdown("""
             padding: 12px;
         }
         div[data-testid="stMetric"] {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-border);
+            border-radius: 12px;
             padding: 16px;
-            box-shadow: 0 8px 24px rgba(15,23,42,0.05);
+            box-shadow: var(--admin-shadow);
+            animation: admin-rise .28s ease both;
         }
         div[data-testid="stMetric"] label {
-            color: #475569;
+            color: var(--admin-muted);
         }
         .admin-hero {
-            background: linear-gradient(135deg, #111827 0%, #1f2937 55%, #334155 100%);
-            border-radius: 10px;
+            position: relative;
+            overflow: hidden;
+            background:
+                linear-gradient(135deg, rgba(37,99,235,0.34), transparent 42%),
+                linear-gradient(135deg, #0f172a 0%, #172033 55%, #243449 100%);
+            border-radius: 14px;
             padding: 28px;
             color: #ffffff;
             margin-bottom: 20px;
             border: 1px solid rgba(255,255,255,0.08);
+            box-shadow: 0 18px 46px rgba(15,23,42,0.22);
+            animation: admin-rise .35s ease both;
+        }
+        .admin-hero:after {
+            content: "";
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            width: 34%;
+            background: linear-gradient(90deg, transparent, rgba(255,255,255,0.16), transparent);
+            animation: admin-sheen 5.5s ease-in-out .8s infinite;
+            pointer-events: none;
         }
         .admin-hero h1 {
             margin: 0;
             font-size: 34px;
             line-height: 1.1;
+            letter-spacing: 0;
         }
         .admin-hero p {
             margin: 10px 0 0;
@@ -118,20 +393,21 @@ st.markdown("""
             font-size: 15px;
         }
         .admin-panel {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
-            border-radius: 8px;
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-border);
+            border-radius: 12px;
             padding: 18px;
-            box-shadow: 0 8px 24px rgba(15,23,42,0.05);
+            box-shadow: var(--admin-shadow);
             margin-bottom: 18px;
+            animation: admin-rise .28s ease both;
         }
         .admin-panel h3 {
             margin: 0 0 8px;
             font-size: 18px;
-            color: #111827;
+            color: var(--admin-text);
         }
         .admin-muted {
-            color: #64748b;
+            color: var(--admin-muted);
             font-size: 14px;
             margin: 0;
         }
@@ -144,10 +420,14 @@ st.markdown("""
             margin-bottom: 8px;
         }
         .sidebar-title {
-            font-size: 20px;
-            font-weight: bold;
+            background: linear-gradient(135deg, rgba(37,99,235,0.22), rgba(14,165,233,0.10));
+            border: 1px solid rgba(255,255,255,0.10);
+            border-radius: 12px;
+            padding: 14px;
+            font-size: 16px;
+            font-weight: 800;
             color: #ffffff;
-            margin-bottom: 20px;
+            margin-bottom: 16px;
         }
         .section-header {
             font-size: 16px;
@@ -157,12 +437,12 @@ st.markdown("""
             margin-bottom: 10px;
         }
         .metric-card {
-            background: #ffffff;
+            background: var(--admin-surface);
             padding: 20px;
-            border-radius: 8px;
-            color: #111827;
+            border-radius: 12px;
+            color: var(--admin-text);
             margin: 10px 0;
-            border: 1px solid #e5e7eb;
+            border: 1px solid var(--admin-border);
         }
         .metric-value {
             font-size: 24px;
@@ -197,15 +477,140 @@ st.markdown("""
         .stButton > button, .stDownloadButton > button {
             border-radius: 8px;
             font-weight: 700;
+            min-height: 2.55rem;
+            transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+        }
+        .stButton > button:hover, .stDownloadButton > button:hover {
+            transform: translateY(-1px);
+            box-shadow: 0 10px 22px rgba(15,23,42,0.12);
+        }
+        button[kind="primary"]:hover {
+            animation: admin-pulse 1.1s ease-in-out infinite;
         }
         .stTabs [data-baseweb="tab-list"] {
             gap: 8px;
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-border);
+            border-radius: 12px;
+            padding: 4px;
+            box-shadow: var(--admin-shadow);
         }
         .stTabs [data-baseweb="tab"] {
-            background: #ffffff;
-            border: 1px solid #e5e7eb;
+            background: transparent;
+            border: 1px solid transparent;
             border-radius: 8px;
             padding: 8px 14px;
+            font-weight: 700;
+        }
+        .stTabs [aria-selected="true"] {
+            background: var(--admin-surface-2) !important;
+            color: var(--admin-primary) !important;
+            border-color: var(--admin-border);
+        }
+        .admin-metric-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin: 0 0 20px;
+        }
+        .admin-metric-card {
+            position: relative;
+            overflow: hidden;
+            background: var(--admin-surface);
+            border: 1px solid var(--admin-border);
+            border-radius: 12px;
+            padding: 18px;
+            box-shadow: var(--admin-shadow);
+            animation: admin-rise .3s ease both;
+            transition: transform .16s ease, box-shadow .16s ease, border-color .16s ease;
+        }
+        .admin-metric-card:before {
+            content: "";
+            position: absolute;
+            inset: 0 0 auto;
+            height: 3px;
+            background: var(--accent, var(--admin-primary));
+        }
+        .admin-metric-card:hover {
+            transform: translateY(-2px);
+            border-color: color-mix(in srgb, var(--accent, var(--admin-primary)) 36%, var(--admin-border));
+            box-shadow: 0 16px 38px rgba(15,23,42,0.13);
+        }
+        .admin-metric-label {
+            color: var(--admin-muted);
+            text-transform: uppercase;
+            font-size: 12px;
+            font-weight: 800;
+            letter-spacing: 0;
+        }
+        .admin-metric-value {
+            color: var(--admin-text);
+            font-size: 30px;
+            font-weight: 850;
+            line-height: 1;
+            margin: 9px 0 5px;
+            letter-spacing: 0;
+            font-variant-numeric: tabular-nums;
+        }
+        .admin-metric-sub {
+            color: var(--admin-muted);
+            font-size: 13px;
+            min-height: 18px;
+        }
+        .admin-section-title {
+            margin: 8px 0 16px;
+        }
+        .admin-section-title h2 {
+            margin: 0;
+            color: var(--admin-text);
+            font-size: 24px;
+            letter-spacing: 0;
+        }
+        .admin-section-title p {
+            margin: 5px 0 0;
+            color: var(--admin-muted);
+            font-size: 14px;
+        }
+        .issue-high, .issue-medium, .issue-low {
+            display: inline-flex;
+            align-items: center;
+            border-radius: 999px;
+            padding: 2px 9px;
+            font-size: 12px;
+            font-weight: 800;
+        }
+        .issue-high { background: #fee2e2; color: #991b1b; }
+        .issue-medium { background: #fef3c7; color: #92400e; }
+        .issue-low { background: #dbeafe; color: #1e40af; }
+        [data-testid="stDataFrame"] {
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: var(--admin-shadow);
+        }
+        [data-testid="stAlert"] {
+            border-radius: 12px;
+        }
+        @media (max-width: 900px) {
+            .admin-metric-grid {
+                grid-template-columns: repeat(2, minmax(0, 1fr));
+            }
+        }
+        @media (max-width: 560px) {
+            .admin-metric-grid {
+                grid-template-columns: 1fr;
+            }
+            .admin-hero h1 {
+                font-size: 26px;
+            }
+        }
+        @media (prefers-reduced-motion: reduce) {
+            *, *:before, *:after {
+                animation-duration: .01ms !important;
+                transition-duration: .01ms !important;
+            }
+            .admin-hero:after {
+                display: none;
+            }
         }
     </style>
 """, unsafe_allow_html=True)
@@ -299,8 +704,8 @@ if __name__ == "__main__":
         # Navigation menu
         selected_menu = option_menu(
             "Navigation",
-            ["Dashboard", "Records", "Reports", "Bulk Import", "Bulk Export", "Analytics", "Data Refresh", "Settings"],
-            icons=["speedometer2", "table", "chat-left-text", "upload", "download", "bar-chart", "arrow-clockwise", "gear"],
+            ["Dashboard", "Records", "Reports", "Data Quality", "Bulk Import", "Bulk Export", "Analytics", "Data Refresh", "Settings"],
+            icons=["speedometer2", "table", "chat-left-text", "shield-check", "upload", "download", "bar-chart", "arrow-clockwise", "gear"],
             menu_icon="menu-button-wide",
             default_index=0,
         )
@@ -322,8 +727,6 @@ if __name__ == "__main__":
                 f"(previously {result['previous_form_records']})."
             )
         
-        col1, col2, col3, col4 = st.columns(4)
-        
         try:
             record_count = db.count_records()
             reports_df = db.fetch_all_reports()
@@ -335,21 +738,27 @@ if __name__ == "__main__":
                 else all_records
             )
             sources = db.get_source_counts()
-            
-            with col1:
-                st.metric("🗂️ Total Records", record_count)
-            
-            with col2:
-                st.metric("📝 Total Reports", report_count)
-            
-            with col3:
-                st.metric(
-                    f"📊 {load_data.ACTIVE_DATA_YEAR} Unique Ranks",
-                    len(active_records['Rank'].unique()) if not active_records.empty else 0,
-                )
-            
-            with col4:
-                st.metric("🏛️ Data Years", len(all_records['data_year'].unique()) if not all_records.empty and 'data_year' in all_records.columns else 1)
+            quality = build_data_quality_report(all_records)
+            high_issues = len(quality[quality["severity"] == "High"]) if not quality.empty else 0
+
+            render_metric_grid(
+                [
+                    _metric_card("Total records", f"{record_count:,}", "all counselling rows", "#2563eb"),
+                    _metric_card("User reports", f"{report_count:,}", "prediction feedback", "#7c3aed"),
+                    _metric_card(
+                        f"{load_data.ACTIVE_DATA_YEAR} unique ranks",
+                        f"{len(active_records['Rank'].unique()):,}" if not active_records.empty else "0",
+                        "active year coverage",
+                        "#16a34a",
+                    ),
+                    _metric_card(
+                        "Data issues",
+                        f"{len(quality):,}",
+                        f"{high_issues:,} high severity",
+                        "#dc2626" if high_issues else "#16a34a",
+                    ),
+                ]
+            )
         
         except Exception as e:
             st.error(f"Error loading dashboard metrics: {str(e)}")
@@ -628,13 +1037,26 @@ if __name__ == "__main__":
                 all_records = db.fetch_all_records()
                 
                 if not all_records.empty:
-                    selected_rank = st.selectbox(
-                        "Select Record by Rank to Delete",
-                        sorted(all_records['Rank'].unique()),
-                        key="delete_rank"
+                    delete_year = st.selectbox(
+                        "Delete Year",
+                        sorted(all_records["data_year"].dropna().astype(int).unique().tolist()),
+                        key="delete_year",
+                    )
+                    delete_records = all_records[all_records["data_year"] == int(delete_year)].reset_index(drop=True)
+                    selected_idx = st.selectbox(
+                        "Select Record to Delete",
+                        range(len(delete_records)),
+                        format_func=lambda i: (
+                            f"{delete_records.iloc[i]['Rank']} | "
+                            f"{delete_records.iloc[i]['Campus']} | "
+                            f"{delete_records.iloc[i]['Branch']} | "
+                            f"Fee {delete_records.iloc[i]['Fee']} | "
+                            f"{delete_records.iloc[i].get('source', 'unknown')}"
+                        ),
+                        key="delete_record_idx",
                     )
                     
-                    record = all_records[all_records['Rank'] == selected_rank].iloc[0]
+                    record = delete_records.iloc[selected_idx]
                     
                     col1, col2 = st.columns(2)
                     with col1:
@@ -642,16 +1064,33 @@ if __name__ == "__main__":
                             "Rank": int(record['Rank']),
                             "Campus": record['Campus'],
                             "Branch": record['Branch'],
-                            "Fee": int(record['Fee'])
+                            "Fee": int(record['Fee']),
+                            "Source": record.get("source", ""),
+                            "Data Year": int(record.get("data_year", db.DEFAULT_DATA_YEAR)),
                         })
                     
                     with col2:
+                        confirm_text = st.text_input(
+                            "Type DELETE to confirm",
+                            key="delete_record_confirm_text",
+                        )
                         if st.button("🗑️ DELETE THIS RECORD", type="secondary", use_container_width=True):
                             try:
-                                # Since we can't delete directly (no delete function in db),
-                                # we'll show a warning
-                                st.warning("⚠️ Delete functionality requires additional database permissions.")
-                                st.info("Contact database administrator to remove records.")
+                                if confirm_text.strip().upper() != "DELETE":
+                                    st.warning("Type DELETE before removing this record.")
+                                else:
+                                    success = db.delete_record(
+                                        rank=int(record["Rank"]),
+                                        campus=str(record["Campus"]),
+                                        branch=str(record["Branch"]),
+                                        fee=int(record["Fee"]),
+                                        data_year=int(record.get("data_year", db.DEFAULT_DATA_YEAR)),
+                                    )
+                                    if success:
+                                        st.success("✅ Record deleted successfully.")
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Failed to delete record.")
                             except Exception as e:
                                 st.error(f"❌ Error: {str(e)}")
                 else:
@@ -828,6 +1267,116 @@ if __name__ == "__main__":
                 st.error(f"Error loading reports: {str(e)}")
 
     # ════════════════════════════════════════════════════════════════════
+    # DATA QUALITY TAB
+    # ════════════════════════════════════════════════════════════════════
+
+    elif selected_menu == "Data Quality":
+        admin_hero(
+            "Data Quality Center",
+            "Audit records for invalid values, duplicate keys, thin samples, and fee-category cutoff order conflicts.",
+        )
+
+        try:
+            all_records = db.fetch_all_records()
+            if all_records.empty:
+                st.warning("No records available to audit.")
+            else:
+                year_options = ["All"] + sorted(
+                    all_records["data_year"].dropna().astype(int).unique().tolist()
+                    if "data_year" in all_records.columns
+                    else [db.DEFAULT_DATA_YEAR]
+                )
+                filter_col1, filter_col2, filter_col3 = st.columns(3)
+                with filter_col1:
+                    audit_year = st.selectbox("Audit year", year_options, key="quality_year")
+                with filter_col2:
+                    audit_campus = st.selectbox(
+                        "Campus",
+                        ["All"] + sorted(all_records["Campus"].dropna().unique().tolist()),
+                        key="quality_campus",
+                    )
+                with filter_col3:
+                    audit_severity = st.selectbox(
+                        "Severity",
+                        ["All", "High", "Medium", "Low"],
+                        key="quality_severity",
+                    )
+
+                scoped_records = all_records.copy()
+                if audit_year != "All" and "data_year" in scoped_records.columns:
+                    scoped_records = scoped_records[scoped_records["data_year"] == int(audit_year)]
+                if audit_campus != "All":
+                    scoped_records = scoped_records[scoped_records["Campus"] == audit_campus]
+
+                issues = build_data_quality_report(scoped_records)
+                if audit_severity != "All" and not issues.empty:
+                    issues = issues[issues["severity"] == audit_severity]
+
+                high_count = len(issues[issues["severity"] == "High"]) if not issues.empty else 0
+                medium_count = len(issues[issues["severity"] == "Medium"]) if not issues.empty else 0
+                low_count = len(issues[issues["severity"] == "Low"]) if not issues.empty else 0
+                conflict_count = (
+                    len(issues[issues["issue"] == "Fee cutoff order conflict"])
+                    if not issues.empty
+                    else 0
+                )
+
+                render_metric_grid(
+                    [
+                        _metric_card("High severity", f"{high_count:,}", "fix first", "#dc2626"),
+                        _metric_card("Medium severity", f"{medium_count:,}", "review soon", "#d97706"),
+                        _metric_card("Low severity", f"{low_count:,}", "data confidence", "#2563eb"),
+                        _metric_card("Cutoff conflicts", f"{conflict_count:,}", "fee order issues", "#7c3aed"),
+                    ]
+                )
+
+                if issues.empty:
+                    st.success("✅ No data quality issues found for the selected scope.")
+                else:
+                    issue_tabs = st.tabs(["Issues", "Summary", "Export"])
+
+                    with issue_tabs[0]:
+                        st.dataframe(
+                            issues.sort_values(["severity", "issue", "data_year"]),
+                            use_container_width=True,
+                            hide_index=True,
+                        )
+
+                    with issue_tabs[1]:
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            st.subheader("Issues by type")
+                            type_counts = issues["issue"].value_counts()
+                            st.bar_chart(type_counts)
+                            st.dataframe(type_counts.reset_index(name="count"), use_container_width=True, hide_index=True)
+                        with col_b:
+                            st.subheader("Issues by branch")
+                            branch_counts = (
+                                issues[issues["branch"].astype(str).str.len() > 0]["branch"]
+                                .value_counts()
+                                .head(15)
+                            )
+                            if not branch_counts.empty:
+                                st.bar_chart(branch_counts)
+                                st.dataframe(branch_counts.reset_index(name="count"), use_container_width=True, hide_index=True)
+                            else:
+                                st.info("No branch-specific issues in this scope.")
+
+                    with issue_tabs[2]:
+                        st.download_button(
+                            "Download issue report CSV",
+                            data=issues.to_csv(index=False),
+                            file_name=f"data_quality_issues_{datetime.now().strftime('%Y%m%d_%H%M%S')}.csv",
+                            mime="text/csv",
+                            type="primary",
+                            use_container_width=True,
+                        )
+                        st.info("Use this report to fix records in Supabase or through the Records tab.")
+
+        except Exception as e:
+            st.error(f"Error running data quality audit: {str(e)}")
+
+    # ════════════════════════════════════════════════════════════════════
     # BULK IMPORT TAB
     # ════════════════════════════════════════════════════════════════════
     
@@ -858,12 +1407,21 @@ if __name__ == "__main__":
                 try:
                     df = pd.read_csv(records_file)
                     st.dataframe(df.head(10), use_container_width=True)
+                    audit_df = normalize_uploaded_records_for_audit(df.copy())
+                    if "data_year" not in audit_df.columns:
+                        audit_df["data_year"] = load_data.ACTIVE_DATA_YEAR
+                    import_issues = build_data_quality_report(audit_df)
                     
-                    col_a, col_b = st.columns(2)
+                    col_a, col_b, col_c = st.columns(3)
                     with col_a:
                         st.success(f"✅ {len(df)} rows ready to import")
-                    
                     with col_b:
+                        if import_issues.empty:
+                            st.success("✅ No obvious quality issues")
+                        else:
+                            st.warning(f"⚠️ {len(import_issues)} issue(s) found")
+                    
+                    with col_c:
                         if st.button("📥 Import Records", type="primary", use_container_width=True, key="import_records_btn"):
                             try:
                                 if "data_year" not in df.columns:
@@ -877,6 +1435,10 @@ if __name__ == "__main__":
                                     st.error("❌ Failed to import records")
                             except Exception as e:
                                 st.error(f"❌ Error: {str(e)}")
+
+                    if not import_issues.empty:
+                        with st.expander("Review import issues before importing"):
+                            st.dataframe(import_issues, use_container_width=True, hide_index=True)
                 
                 except Exception as e:
                     st.error(f"❌ Error reading file: {str(e)}")
