@@ -6,7 +6,8 @@ import plotly.express as px
 import plotly.graph_objects as go
 import streamlit as st
 
-from load_data import delete_report, get_reports, master_df, submit_report
+import database as db
+from load_data import get_reports, master_df, submit_report
 from recommender import get_rank_statistics, get_recommendations_by_category, recommend
 
 # =====================================================
@@ -24,12 +25,21 @@ st.set_page_config(
 # THEME
 # =====================================================
 
+if "theme_mode" not in st.session_state:
+    st.session_state.theme_mode = "Light"
+
 theme_mode = st.sidebar.segmented_control(
     "Theme",
     ["Light", "Dark (Beta)"],
-    default="Light",
     key="theme_mode",
 )
+_theme_valid = ("Light", "Dark (Beta)")
+_sel_theme = (
+    theme_mode if theme_mode in _theme_valid else st.session_state.get("theme_mode", "Light")
+)
+if _sel_theme not in _theme_valid:
+    _sel_theme = "Light"
+    st.session_state.theme_mode = _sel_theme
 REPORT_TYPE_META = {
     "wrong_cutoff": {"label": "Wrong cutoff", "color": "#f59e0b"},
     "got_allotted": {"label": "Got allotted", "color": "#10b981"},
@@ -94,6 +104,16 @@ THEMES = {
         "report_success_bg": "#f0fdf4",
         "report_success_border": "#86efac",
         "report_success_text": "#15803d",
+        # Extra shadows / surfaces (hover, notes, badges)
+        "note_bg": "rgba(100, 116, 139, 0.08)",
+        "insufficient_bg": "#fef3c7",
+        "insufficient_text": "#92400e",
+        "insufficient_border": "#fcd34d",
+        "hover_safe": "0 8px 32px rgba(74, 222, 128, 0.10)",
+        "hover_moderate": "0 8px 32px rgba(251, 191, 36, 0.10)",
+        "hover_dream": "0 8px 32px rgba(239, 68, 68, 0.12)",
+        "hover_unlikely": "0 6px 24px rgba(100, 116, 139, 0.12)",
+        "stat_card_hover_shadow": "0 8px 24px rgba(15, 23, 42, 0.12)",
     },
     "Dark (Beta)": {
         # Base surfaces — slightly warmer deep blue
@@ -159,10 +179,19 @@ THEMES = {
         "report_success_bg": "#062011",
         "report_success_border": "#059669",
         "report_success_text": "#34d399",
+        "note_bg": "rgba(139, 157, 181, 0.12)",
+        "insufficient_bg": "#2d1a04",
+        "insufficient_text": "#fde68a",
+        "insufficient_border": "#b45309",
+        "hover_safe": "0 8px 36px rgba(52, 211, 153, 0.18)",
+        "hover_moderate": "0 8px 36px rgba(251, 191, 36, 0.16)",
+        "hover_dream": "0 8px 36px rgba(248, 113, 113, 0.18)",
+        "hover_unlikely": "0 6px 28px rgba(0, 0, 0, 0.45)",
+        "stat_card_hover_shadow": "0 10px 36px rgba(0, 0, 0, 0.55)",
     },
 }
 THEMES["Dark"] = THEMES["Dark (Beta)"]
-theme = THEMES["Dark" if theme_mode == "Dark (Beta)" else theme_mode]
+theme = THEMES[_sel_theme]
 
 
 # =====================================================
@@ -243,6 +272,15 @@ st.markdown(
         --report-success-bg: {theme["report_success_bg"]};
         --report-success-border: {theme["report_success_border"]};
         --report-success-text: {theme["report_success_text"]};
+        --vit-note-bg: {theme["note_bg"]};
+        --vit-insufficient-bg: {theme["insufficient_bg"]};
+        --vit-insufficient-text: {theme["insufficient_text"]};
+        --vit-insufficient-border: {theme["insufficient_border"]};
+        --vit-hover-safe: {theme["hover_safe"]};
+        --vit-hover-moderate: {theme["hover_moderate"]};
+        --vit-hover-dream: {theme["hover_dream"]};
+        --vit-hover-unlikely: {theme["hover_unlikely"]};
+        --vit-stat-card-hover: {theme["stat_card_hover_shadow"]};
     }}
 
     /* ── App shell ── */
@@ -408,27 +446,78 @@ st.markdown(
         padding: 0.85rem 1rem 0;
     }}
 
-    /* ── Result card ── */
-    .result-row {{
+    /* ── Result card: submitted path uses .result-card-wrap; interactive path uses Streamlit columns + .vit-pred-card marker ── */
+    .result-card-wrap {{
         background: var(--vit-surface);
         border: 1px solid var(--vit-border);
         border-left: 5px solid var(--vit-border);
         border-radius: 10px;
-        padding: 1.35rem 1.5rem;
-        margin-bottom: 0.4rem;
+        margin-bottom: 0.9rem;
+        box-shadow: var(--vit-shadow);
+        transition: box-shadow 0.18s ease, border-color 0.18s ease;
+        overflow: hidden;
+    }}
+    .result-card-wrap.safe     {{ border-left-color: var(--vit-safe-color); }}
+    .result-card-wrap.moderate {{ border-left-color: var(--vit-moderate-color); }}
+    .result-card-wrap.dream    {{ border-left-color: var(--vit-dream-color); }}
+    .result-card-wrap.unlikely {{ border-left-color: var(--vit-soft); }}
+
+    .result-row {{
         display: grid;
         grid-template-columns: minmax(0, 1fr) 180px;
         gap: 1.25rem;
+        padding: 1.35rem 1.5rem;
+    }}
+
+    span.vit-pred-card {{
+        position: absolute;
+        width: 1px;
+        height: 1px;
+        padding: 0;
+        margin: -1px;
+        overflow: hidden;
+        clip: rect(0, 0, 0, 0);
+        white-space: nowrap;
+        border: 0;
+    }}
+
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card) {{
+        position: relative;
+        background: var(--vit-surface);
+        border: 1px solid var(--vit-border);
+        border-radius: 10px;
+        padding: 1.15rem 1.35rem 1.25rem;
+        margin-bottom: 0.9rem;
         box-shadow: var(--vit-shadow);
-        transition: box-shadow 0.15s;
+        transition: box-shadow 0.18s ease, border-color 0.18s ease;
+        align-items: flex-start;
+        overflow: hidden;
     }}
-    .result-row:hover {{
-        box-shadow: 0 4px 16px rgba(15,23,42,0.08);
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--safe) {{
+        border-left: 5px solid var(--vit-safe-color);
     }}
-    .result-row.safe     {{ border-left-color: var(--vit-safe-color); }}
-    .result-row.moderate {{ border-left-color: var(--vit-moderate-color); }}
-    .result-row.dream    {{ border-left-color: var(--vit-dream-color); }}
-    .result-row.unlikely {{ border-left-color: var(--vit-soft); }}
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--moderate) {{
+        border-left: 5px solid var(--vit-moderate-color);
+    }}
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--dream) {{
+        border-left: 5px solid var(--vit-dream-color);
+    }}
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--unlikely) {{
+        border-left: 5px solid var(--vit-soft);
+    }}
+
+    .vit-pred-col-main {{
+        position: relative;
+        min-width: 0;
+    }}
+    .vit-pred-col-side {{
+        display: flex;
+        flex-direction: column;
+        align-items: stretch;
+        gap: 0.55rem;
+        min-width: 0;
+        width: 100%;
+    }}
 
     /* ── Card header ── */
     .result-topline {{
@@ -515,8 +604,14 @@ st.markdown(
         line-height: 1.5;
         padding: 0.55rem 0.8rem;
         border-left: 3px solid var(--vit-border);
-        background: rgba(100,116,139,0.06);
+        background: var(--vit-note-bg);
         border-radius: 0 6px 6px 0;
+    }}
+    .badge-insufficient {{
+        margin-left: 4px;
+        background: var(--vit-insufficient-bg) !important;
+        color: var(--vit-insufficient-text) !important;
+        border: 1px solid var(--vit-insufficient-border) !important;
     }}
     .result-note strong {{ color: var(--vit-text); }}
 
@@ -529,6 +624,13 @@ st.markdown(
         align-items: flex-end;
         justify-content: center;
         gap: 6px;
+    }}
+    .prob-panel.prob-panel--column {{
+        border-left: none;
+        padding-left: 0;
+        align-items: flex-end;
+        justify-content: flex-start;
+        width: 100%;
     }}
     .prob-number {{
         font-size: 2.4rem;
@@ -638,6 +740,7 @@ st.markdown(
         border: 1px solid var(--report-border);
         border-radius: 10px;
         margin-top: 0.35rem;
+        margin-bottom: 0.75rem;
         overflow: hidden;
     }}
     .report-card-header {{
@@ -712,6 +815,12 @@ st.markdown(
         gap: 0.5rem;
         margin-top: 0.35rem;
     }}
+    .report-success--embedded {{
+        margin: 0;
+        border-radius: 0 0 10px 10px;
+        border-top: 1px solid var(--report-success-border);
+        padding: 0.75rem 1.25rem;
+    }}
 
     /* ── Admin dashboard ── */
     .admin-header {{
@@ -784,7 +893,7 @@ st.markdown(
         font-size: 0.84rem;
         color: var(--vit-text);
         line-height: 1.45;
-        background: rgba(100,116,139,0.06);
+        background: var(--vit-note-bg);
         border-radius: 6px;
         padding: 0.4rem 0.6rem;
         border-left: 3px solid var(--vit-border);
@@ -873,6 +982,14 @@ st.markdown(
     /* ── Block containers — transparent so the bg shows through ── */
     [data-testid="stVerticalBlock"],
     [data-testid="stHorizontalBlock"] {{ background: transparent; }}
+
+    /* ── Primary buttons (main canvas; sidebar rules stay scoped above) ── */
+    [data-testid="stMainBlockContainer"] button[kind="primary"],
+    [data-testid="stMainBlockContainer"] button[kind="primary"] * {{
+        background-color: var(--vit-primary) !important;
+        border-color: var(--vit-primary) !important;
+        color: #ffffff !important;
+    }}
 
     /* ── Secondary / tertiary buttons ── */
     button[kind="secondary"] {{
@@ -1062,7 +1179,10 @@ st.markdown(
     .info-strip    {{ animation: vit-fade-in 0.5s ease both; animation-delay: 0.1s; }}
     .metric-grid   {{ animation: vit-fade-up 0.35s ease both; animation-delay: 0.05s; }}
     .cat-overview  {{ animation: vit-fade-in 0.4s ease both; animation-delay: 0.08s; }}
-    .result-row    {{ animation: vit-fade-up 0.28s ease both; }}
+    .result-card-wrap,
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card) {{
+        animation: vit-fade-up 0.28s ease both;
+    }}
     .context-banner {{ animation: vit-fade-in 0.3s ease both; }}
     .empty-state   {{ animation: vit-fade-in 0.3s ease both; }}
     .section-heading {{ animation: vit-slide-right 0.22s ease both; }}
@@ -1105,17 +1225,38 @@ st.markdown(
 
     /* ── Result card polish ───────────────────────────────────────── */
     /* Badge glow on hover for reach/dream cards */
-    .result-row.dream:hover {{
+    .result-card-wrap.dream:hover {{
         border-left-color: var(--vit-dream-color) !important;
-        box-shadow: 0 8px 32px rgba(239,68,68,0.12), var(--vit-shadow);
+        box-shadow: var(--vit-hover-dream), var(--vit-shadow);
     }}
-    .result-row.safe:hover {{
+    .result-card-wrap.safe:hover {{
         border-left-color: var(--vit-safe-color) !important;
-        box-shadow: 0 8px 32px rgba(74,222,128,0.10), var(--vit-shadow);
+        box-shadow: var(--vit-hover-safe), var(--vit-shadow);
     }}
-    .result-row.moderate:hover {{
+    .result-card-wrap.moderate:hover {{
         border-left-color: var(--vit-moderate-color) !important;
-        box-shadow: 0 8px 32px rgba(251,191,36,0.10), var(--vit-shadow);
+        box-shadow: var(--vit-hover-moderate), var(--vit-shadow);
+    }}
+    .result-card-wrap.unlikely:hover {{
+        border-left-color: var(--vit-soft) !important;
+        box-shadow: var(--vit-hover-unlikely), var(--vit-shadow);
+    }}
+
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--dream):hover {{
+        border-left-color: var(--vit-dream-color) !important;
+        box-shadow: var(--vit-hover-dream), var(--vit-shadow);
+    }}
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--safe):hover {{
+        border-left-color: var(--vit-safe-color) !important;
+        box-shadow: var(--vit-hover-safe), var(--vit-shadow);
+    }}
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--moderate):hover {{
+        border-left-color: var(--vit-moderate-color) !important;
+        box-shadow: var(--vit-hover-moderate), var(--vit-shadow);
+    }}
+    [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card--unlikely):hover {{
+        border-left-color: var(--vit-soft) !important;
+        box-shadow: var(--vit-hover-unlikely), var(--vit-shadow);
     }}
 
     /* Probability number — tighter letter spacing for big digits */
@@ -1148,12 +1289,15 @@ st.markdown(
     }}
     .admin-stat-card:hover {{
         transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+        box-shadow: var(--vit-stat-card-hover);
     }}
 
     /* ── Stagger result rows inside each section ─────────────────── */
     /* Works on result-rows that are siblings or near-siblings */
-    [data-testid="stVerticalBlock"] .result-row {{ animation-delay: 0.04s; }}
+    [data-testid="stVerticalBlock"] .result-card-wrap,
+    [data-testid="stVerticalBlock"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card) {{
+        animation-delay: 0.04s;
+    }}
 
     /* ── Rank display in sidebar ──────────────────────────────────── */
     .rank-big {{
@@ -1166,12 +1310,21 @@ st.markdown(
         [data-testid="stMainBlockContainer"] {{ padding: 1.25rem 1rem; }}
         .metric-grid {{ grid-template-columns: repeat(2, 1fr); }}
         .result-row {{ grid-template-columns: 1fr; }}
+        [data-testid="stMainBlockContainer"] [data-testid="stHorizontalBlock"]:has(span.vit-pred-card) {{
+            flex-direction: column !important;
+        }}
         .prob-panel {{
             align-items: flex-start;
             border-left: none;
             border-top: 1px solid var(--vit-border);
             padding-left: 0;
             padding-top: 1rem;
+        }}
+        .prob-panel.prob-panel--column {{
+            align-items: flex-start;
+            border-top: 1px solid var(--vit-border);
+            padding-top: 0.85rem;
+            margin-top: 0.25rem;
         }}
         .prob-bar-bg {{ width: 100%; }}
         .prob-label, .score-label, .cutoff-note {{ text-align: left; }}
@@ -1428,7 +1581,8 @@ def make_card_key(r):
     return f"{r['campus']}_{r['branch']}_{r['fee']}".replace(" ", "_")
 
 
-def result_row_html(r, rank, kind):
+def result_card_parts(r, rank, kind, *, prob_extra_class=""):
+    """Left column (details) + probability panel HTML. Use prob_extra_class for column layout variant."""
     diff = r["rank_difference"]
     sign = "+" if diff >= 0 else "−"
     margin_label = f"{sign}{abs(diff):,}"
@@ -1450,9 +1604,7 @@ def result_row_html(r, rank, kind):
 
     if r.get("data_insufficient"):
         insuff_badge = (
-            '<span class="badge" style="'
-            "background:#fef3c7;color:#92400e;"
-            'border:1px solid #fcd34d;margin-left:4px;">'
+            '<span class="badge badge-insufficient">'
             "⚠ Data Insufficient"
             "</span>"
         )
@@ -1508,8 +1660,11 @@ def result_row_html(r, rank, kind):
     prob_bar_html = prob_bar(r["probability"], kind)
     badge_label = badge_text[kind]
 
-    return (
-        f'<div class="result-row {kind}">'
+    prob_classes = "prob-panel"
+    if prob_extra_class:
+        prob_classes += f" {prob_extra_class.strip()}"
+
+    left_html = (
         f'<div style="min-width:0;">'
         f'<div class="result-topline">'
         f'<span class="result-branch">{branch}</span>'
@@ -1527,15 +1682,30 @@ def result_row_html(r, rank, kind):
         f"</div>"
         f'<div class="result-note">{reason}</div>'
         f"</div>"
-        f'<div class="prob-panel">'
+    )
+
+    prob_html = (
+        f'<div class="{prob_classes}">'
         f'<div class="prob-number {kind}">{r["probability"]:.0f}%</div>'
         f'<div class="prob-label">{badge_label} chance</div>'
         f"{prob_bar_html}"
         f'<div class="cutoff-note">cutoff {r["closing_rank"]:,}</div>'
         f'<div class="score-label">score {r["recommendation_score"]:.1f}</div>'
         f"</div>"
-        f"</div>"
     )
+
+    return left_html, prob_html
+
+
+def result_row_html(r, rank, kind):
+    """Single HTML row for “already reported” cards (classic two-column grid inside one wrap)."""
+    left_html, prob_html = result_card_parts(r, rank, kind)
+    return f'<div class="result-row">{left_html}{prob_html}</div>'
+
+
+def wrap_result_card(inner_html, kind, *, trailing_html=""):
+    classes = f"result-card-wrap {kind}"
+    return f'<div class="{classes}">{inner_html}{trailing_html}</div>'
 
 
 REPORT_TYPES = [
@@ -1581,29 +1751,44 @@ REPORT_TYPES = [
 def render_result_with_report(r, rank, kind):
     card_key = make_card_key(r)
 
-    st.markdown(result_row_html(r, rank, kind), unsafe_allow_html=True)
-
-    # Already submitted
+    # Already submitted — success sits inside the same card chrome as the prediction
     if st.session_state.report_submitted.get(card_key):
-        st.markdown(
-            '<div class="report-success">'
+        thanks_html = (
+            '<div class="report-success report-success--embedded">'
             "✅ Thanks for your report — it helps improve the model for everyone!"
-            "</div>",
+            "</div>"
+        )
+        st.markdown(
+            wrap_result_card(
+                result_row_html(r, rank, kind), kind, trailing_html=thanks_html
+            ),
             unsafe_allow_html=True,
         )
-        st.markdown('<div style="margin-bottom:0.9rem;"></div>', unsafe_allow_html=True)
         return
 
     is_open = st.session_state.report_open.get(card_key, False)
 
-    # Toggle button — subtle styling
-    col_btn, col_pad = st.columns([1, 6])
-    with col_btn:
+    left_html, prob_html = result_card_parts(
+        r, rank, kind, prob_extra_class="prob-panel--column"
+    )
+    marker = f'<span class="vit-pred-card vit-pred-card--{kind}" aria-hidden="true"></span>'
+    col_main, col_prob = st.columns([3.55, 1])
+    with col_main:
+        st.markdown(
+            marker + f'<div class="vit-pred-col-main">{left_html}</div>',
+            unsafe_allow_html=True,
+        )
+    with col_prob:
+        st.markdown(
+            f'<div class="vit-pred-col-side">{prob_html}</div>',
+            unsafe_allow_html=True,
+        )
         btn_label = "🚩 Hide" if is_open else "🚩 Report"
         if st.button(
             btn_label,
             key=f"report_btn_{card_key}",
             help="Flag this prediction as inaccurate or add real-world data",
+            use_container_width=True,
         ):
             st.session_state.report_open[card_key] = not is_open
             st.rerun()
@@ -1714,8 +1899,6 @@ def render_result_with_report(r, rank, kind):
             "</div></div>",
             unsafe_allow_html=True,
         )
-
-    st.markdown('<div style="margin-bottom:0.9rem;"></div>', unsafe_allow_html=True)
 
 
 def section_header(icon, title, count):
@@ -2480,7 +2663,7 @@ if query_params.get("admin") == "1":
                                 type="primary",
                                 use_container_width=True,
                             ):
-                                ok = delete_report(report_id)
+                                ok = db.delete_report(report_id)
                                 st.session_state["_admin_delete_pending"] = None
                                 if ok:
                                     st.toast("Report deleted.", icon="✅")
