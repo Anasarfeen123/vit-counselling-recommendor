@@ -346,6 +346,54 @@ def delete_records_by_year(data_year: int) -> bool:
         return False
 
 
+def delete_record(
+    *,
+    rank: int,
+    campus: str,
+    branch: str,
+    fee: int,
+    data_year: int | None = None,
+) -> bool:
+    """
+    Delete one counselling record by its natural key.
+
+    data_year is included when available so the admin UI can safely distinguish
+    the same rank/campus/branch/fee across counselling years.
+    """
+    try:
+        query = (
+            get_supabase()
+            .table("counselling_records")
+            .delete()
+            .eq("rank", int(rank))
+            .eq("campus", str(campus))
+            .eq("branch", str(branch))
+            .eq("fee", int(fee))
+        )
+        if data_year is not None:
+            query = query.eq("data_year", int(data_year))
+        query.execute()
+        return True
+    except Exception as exc:
+        if data_year == DEFAULT_DATA_YEAR:
+            try:
+                (
+                    get_supabase()
+                    .table("counselling_records")
+                    .delete()
+                    .eq("rank", int(rank))
+                    .eq("campus", str(campus))
+                    .eq("branch", str(branch))
+                    .eq("fee", int(fee))
+                    .execute()
+                )
+                return True
+            except Exception:
+                pass
+        print(f"[db] delete_record error: {exc}")
+        return False
+
+
 def delete_all_reports() -> bool:
     """
     Delete ALL reports from reports table.
