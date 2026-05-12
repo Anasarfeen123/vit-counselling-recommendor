@@ -6,3 +6,5 @@ credentials.a
 secrets.toml
 schema.sql
 SETUP.md
+config.bat
+node_modules
