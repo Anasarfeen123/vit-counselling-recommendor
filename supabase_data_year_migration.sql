@@ -22,12 +22,12 @@ begin
           and rel.relname = 'counselling_records'
           and con.contype = 'u'
           and (
-              select array_agg(att.attname order by att.attname)
+              select array_agg(att.attname::text order by att.attname::text)
               from unnest(con.conkey) as cols(attnum)
               join pg_attribute att
                 on att.attrelid = con.conrelid
                and att.attnum = cols.attnum
-          ) = array['branch', 'campus', 'fee', 'rank']
+          ) = array['branch', 'campus', 'fee', 'rank']::text[]
     loop
         execute format('alter table counselling_records drop constraint %I', constraint_name);
     end loop;
@@ -42,12 +42,12 @@ begin
           and tbl.relname = 'counselling_records'
           and i.indisunique
           and (
-              select array_agg(att.attname order by att.attname)
+              select array_agg(att.attname::text order by att.attname::text)
               from unnest(i.indkey) as cols(attnum)
               join pg_attribute att
                 on att.attrelid = tbl.oid
                and att.attnum = cols.attnum
-          ) = array['branch', 'campus', 'fee', 'rank']
+          ) = array['branch', 'campus', 'fee', 'rank']::text[]
     loop
         execute format('drop index if exists %I', index_name);
     end loop;
