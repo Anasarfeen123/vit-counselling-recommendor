@@ -19,6 +19,7 @@ Public API (imported by app.py / recommender.py)
 import re
 import statistics
 from collections import defaultdict
+from pathlib import Path
 
 import gspread
 import pandas as pd
@@ -26,6 +27,37 @@ import streamlit as st
 from oauth2client.service_account import ServiceAccountCredentials
 
 import database as db
+
+DEFAULT_DATA_YEAR = db.DEFAULT_DATA_YEAR
+
+
+def _active_data_year() -> int:
+    """Year used by the public predictor unless Streamlit secrets override it."""
+    try:
+        return int(st.secrets.get("active_data_year", DEFAULT_DATA_YEAR))
+    except Exception:
+        return DEFAULT_DATA_YEAR
+
+
+ACTIVE_DATA_YEAR = _active_data_year()
+
+
+def _historical_file_for_year(data_year: int) -> Path:
+    matches = sorted(Path("data").glob(f"*{int(data_year)}*.xlsx"))
+    if matches:
+        return matches[0]
+    if int(data_year) == DEFAULT_DATA_YEAR:
+        return Path("data/VIT Counselling Data ( 2025 ).xlsx")
+    raise FileNotFoundError(f"No historical Excel file found in data/ for {data_year}")
+
+
+def _available_historical_years() -> list[int]:
+    years = set()
+    for path in Path("data").glob("*.xlsx"):
+        match = re.search(r"(20\d{2})", path.name)
+        if match:
+            years.add(int(match.group(1)))
+    return sorted(years) or [DEFAULT_DATA_YEAR]
 
 # =====================================================
 # GOOGLE SHEETS CONNECTION  (form-response ingestion)
@@ -286,31 +318,46 @@ def _seed_historical() -> int:
     which meant new rows added to the Excel file were never pushed to Supabase.
     That guard has been removed.
     """
-    print("[load] 🌱 Syncing Excel → Supabase (idempotent upsert) …")
-    hist = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
+    total = 0
+    for data_year in _available_historical_years():
+        print(f"[load] 🌱 Syncing {data_year} Excel → Supabase (idempotent upsert) …")
+        records = _build_historical_records(data_year)
+        ok = db.upsert_records(records)
+        n = len(records) if ok else 0
+        total += n
+        print(f"[load] ✅ {data_year} Excel → Supabase sync complete: {n:,} rows upserted")
+    return total
+
+
+def _load_historical_df(data_year: int) -> pd.DataFrame:
+    """Load and normalise one year's historical Excel file."""
+    hist = pd.read_excel(_historical_file_for_year(data_year))
     hist.columns = ["Rank", "Campus", "Branch", "Fee"]
     hist = hist.dropna()
     hist["Rank"] = hist["Rank"].astype(int)
     hist["Fee"] = hist["Fee"].astype(int)
     hist["Branch"] = hist["Branch"].apply(normalize_branch)
     hist["Campus"] = hist["Campus"].apply(normalize_campus)
-    hist = hist.dropna(subset=["Branch", "Campus"])  # drop rows normalize returned None
+    hist = hist.dropna(subset=["Branch", "Campus"])
     hist = hist.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
+    hist["source"] = "historical"
+    hist["data_year"] = int(data_year)
+    return hist
 
-    records = [
+
+def _build_historical_records(data_year: int) -> list[dict]:
+    hist = _load_historical_df(data_year)
+    return [
         {
             "rank": int(row["Rank"]),
             "campus": row["Campus"],
             "branch": row["Branch"],
             "fee": int(row["Fee"]),
             "source": "historical",
+            "data_year": int(data_year),
         }
         for _, row in hist.iterrows()
     ]
-    ok = db.upsert_records(records)
-    n = len(records) if ok else 0
-    print(f"[load] ✅ Excel → Supabase sync complete: {n:,} rows upserted")
-    return n
 
 
 # =====================================================
@@ -318,69 +365,13 @@ def _seed_historical() -> int:
 # =====================================================
 
 
-def _sync_form_responses() -> int:
+def _sync_form_responses(data_year: int = ACTIVE_DATA_YEAR) -> int:
     """
     Pull latest Google Form responses and upsert into Supabase.
     Returns the number of valid rows sent.
     """
     try:
-        sheet = _gs_client.open_by_url(SPREADSHEET_URL).sheet1
-        raw = sheet.get_all_records()
-        if not raw:
-            return 0
-
-        df = pd.DataFrame(raw).rename(
-            columns={
-                "VITEEE Rank": "Rank",
-                "Campus": "Campus",
-                "Branch": "Branch",
-                "Fee Category": "Fee",
-            }
-        )
-
-        # Keep only the four needed columns (extra form fields ignored)
-        for col in ["Rank", "Campus", "Branch", "Fee"]:
-            if col not in df.columns:
-                print(f"[load] ⚠ Column '{col}' missing from form sheet")
-                return 0
-        df = df[["Rank", "Campus", "Branch", "Fee"]].copy()
-
-        df["Rank"] = pd.to_numeric(df["Rank"], errors="coerce")
-        df["Fee"] = df["Fee"].astype(str).str.extract(r"(\d+)", expand=False)
-        df["Fee"] = pd.to_numeric(df["Fee"], errors="coerce")
-        df = df.dropna()
-        df["Rank"] = df["Rank"].astype(int)
-        df["Fee"] = df["Fee"].astype(int)
-        df["Branch"] = df["Branch"].apply(normalize_branch)
-        df["Campus"] = df["Campus"].apply(normalize_campus)
-
-        # ── Strict whitelist: drop any row with an unrecognised branch or campus.
-        # This is the primary guard against spam / test submissions flooding the DB.
-        before = len(df)
-        df = df[
-            df["Branch"].isin(VALID_BRANCHES)
-            & df["Campus"].isin(VALID_CAMPUSES)
-            & df["Fee"].apply(_valid_fee)
-            & df["Rank"].apply(_valid_rank)
-        ]
-        dropped = before - len(df)
-        if dropped:
-            print(
-                f"[load] ⚠ Dropped {dropped} form rows with invalid branch/campus/fee/rank"
-            )
-
-        df = df.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
-
-        records = [
-            {
-                "rank": int(row["Rank"]),
-                "campus": row["Campus"],
-                "branch": row["Branch"],
-                "fee": int(row["Fee"]),
-                "source": "form",
-            }
-            for _, row in df.iterrows()
-        ]
+        records = _build_form_records(data_year)
         if records:
             db.upsert_records(records)
         print(f"[load] 🔄 Synced {len(records)} valid form responses")
@@ -390,6 +381,64 @@ def _sync_form_responses() -> int:
         return 0
 
 
+def _build_form_records(data_year: int = ACTIVE_DATA_YEAR) -> list[dict]:
+    """Read Google Form responses and return validated Supabase records."""
+    sheet = _gs_client.open_by_url(SPREADSHEET_URL).sheet1
+    raw = sheet.get_all_records()
+    if not raw:
+        return []
+
+    df = pd.DataFrame(raw).rename(
+        columns={
+            "VITEEE Rank": "Rank",
+            "Campus": "Campus",
+            "Branch": "Branch",
+            "Fee Category": "Fee",
+        }
+    )
+
+    # Keep only the four needed columns (extra form fields ignored)
+    for col in ["Rank", "Campus", "Branch", "Fee"]:
+        if col not in df.columns:
+            print(f"[load] ⚠ Column '{col}' missing from form sheet")
+            return []
+    df = df[["Rank", "Campus", "Branch", "Fee"]].copy()
+
+    df["Rank"] = pd.to_numeric(df["Rank"], errors="coerce")
+    df["Fee"] = df["Fee"].astype(str).str.extract(r"(\d+)", expand=False)
+    df["Fee"] = pd.to_numeric(df["Fee"], errors="coerce")
+    df = df.dropna()
+    df["Rank"] = df["Rank"].astype(int)
+    df["Fee"] = df["Fee"].astype(int)
+    df["Branch"] = df["Branch"].apply(normalize_branch)
+    df["Campus"] = df["Campus"].apply(normalize_campus)
+
+    # Strict whitelist: drop any row with an unrecognised branch or campus.
+    before = len(df)
+    df = df[
+        df["Branch"].isin(VALID_BRANCHES)
+        & df["Campus"].isin(VALID_CAMPUSES)
+        & df["Fee"].apply(_valid_fee)
+        & df["Rank"].apply(_valid_rank)
+    ]
+    dropped = before - len(df)
+    if dropped:
+        print(f"[load] ⚠ Dropped {dropped} form rows with invalid branch/campus/fee/rank")
+
+    df = df.drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"])
+    return [
+        {
+            "rank": int(row["Rank"]),
+            "campus": row["Campus"],
+            "branch": row["Branch"],
+            "fee": int(row["Fee"]),
+            "source": "form",
+            "data_year": int(data_year),
+        }
+        for _, row in df.iterrows()
+    ]
+
+
 # =====================================================
 # BUILD MASTER DF  (runs at import time)
 # =====================================================
@@ -397,44 +446,33 @@ def _sync_form_responses() -> int:
 _seed_historical()
 _sync_form_responses()
 
-_hist = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
-_hist.columns = ["Rank", "Campus", "Branch", "Fee"]
-_hist = _hist.dropna()
-_hist["Rank"] = _hist["Rank"].astype(int)
-_hist["Fee"] = _hist["Fee"].astype(int)
-_hist["Branch"] = _hist["Branch"].apply(normalize_branch)
-_hist["Campus"] = _hist["Campus"].apply(normalize_campus)
-_hist = _hist.dropna(subset=["Branch", "Campus"])  # drop unrecognised entries
-_hist["source"] = "historical"
+_hist = _load_historical_df(ACTIVE_DATA_YEAR)
 
 _sb = db.fetch_all_records()
+if "data_year" in _sb.columns:
+    _sb = _sb[_sb["data_year"] == ACTIVE_DATA_YEAR]
 
 master_df = (
     pd.concat([_hist, _sb], ignore_index=True)
-    .drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee"], keep="first")
+    .drop_duplicates(subset=["Rank", "Campus", "Branch", "Fee", "data_year"], keep="first")
     .sort_values("Rank")
     .reset_index(drop=True)
 )
 
 print(
-    f"[load] ✅ master_df: {len(master_df):,} rows ({len(_hist):,} Excel + {len(_sb):,} Supabase)"
+    f"[load] ✅ master_df {ACTIVE_DATA_YEAR}: {len(master_df):,} rows "
+    f"({len(_hist):,} Excel + {len(_sb):,} Supabase)"
 )
 
 # Safety fallback: if Supabase returned nothing, load directly from Excel
 # so the app stays functional while the DB connection is investigated
 if master_df.empty:
     print("[load] ⚠ Supabase returned empty — falling back to Excel")
-    _fb = pd.read_excel("data/VIT Counselling Data ( 2025 ).xlsx")
-    _fb.columns = ["Rank", "Campus", "Branch", "Fee"]
-    _fb = _fb.dropna()
-    _fb["Rank"] = _fb["Rank"].astype(int)
-    _fb["Fee"] = _fb["Fee"].astype(int)
-    _fb["Branch"] = _fb["Branch"].apply(normalize_branch)
-    _fb["Campus"] = _fb["Campus"].apply(normalize_campus)
+    _fb = _load_historical_df(ACTIVE_DATA_YEAR)
     master_df = _fb.sort_values("Rank").reset_index(drop=True)
 
 print(
-    f"[load] ✅ master_df: {len(master_df):,} rows | "
+    f"[load] ✅ master_df {ACTIVE_DATA_YEAR}: {len(master_df):,} rows | "
     f"{master_df['Campus'].nunique()} campuses | "
     f"{master_df['Branch'].nunique()} branches"
 )
@@ -508,3 +546,128 @@ def get_reports():
 def delete_report(report_id: int) -> bool:
     """Delete a report by ID from Supabase."""
     return db.delete_report(report_id)
+
+
+def refresh_from_sources(data_year: int = ACTIVE_DATA_YEAR) -> dict:
+    """
+    ADMIN ONLY: Refresh one data year by:
+    1. Delete existing counselling records for that year
+    2. Reload that year's Excel file (historical data)
+    3. Reload Google Sheets form responses tagged to that year
+    
+    Returns dict with results: {
+        'success': bool,
+        'records_loaded': int,
+        'form_responses': int,
+        'error': str (if any)
+    }
+    """
+    try:
+        data_year = int(data_year)
+        print(f"[load] 🔄 Starting {data_year} data refresh from sources...")
+        
+        # Step 1: Delete existing records for this year only.
+        print(f"[load] Step 1: Clearing existing {data_year} records...")
+        db.delete_records_by_year(data_year)
+        print(f"[load] ✅ Existing {data_year} records cleared")
+        
+        # Step 2: Load historical data from Excel
+        print("[load] Step 2: Loading historical data from Excel...")
+        records = _build_historical_records(data_year)
+        
+        if records:
+            ok = db.upsert_records(records)
+            records_loaded = len(records) if ok else 0
+        else:
+            records_loaded = 0
+        
+        print(f"[load] ✅ Loaded {records_loaded} historical records")
+        
+        # Step 3: Load form responses from Google Sheets
+        print("[load] Step 3: Loading form responses from Google Sheets...")
+        form_records = _build_form_records(data_year)
+        if form_records:
+            ok = db.upsert_records(form_records)
+            form_responses = len(form_records) if ok else 0
+        else:
+            form_responses = 0
+        print(f"[load] ✅ Loaded {form_responses} form responses")
+        
+        # Success!
+        total = records_loaded + form_responses
+        print(f"[load] 🎉 Data refresh complete! Loaded {total} total records")
+        
+        return {
+            "success": True,
+            "data_year": data_year,
+            "records_loaded": records_loaded,
+            "form_responses": form_responses,
+            "total": total,
+            "error": None
+        }
+        
+    except Exception as e:
+        error_msg = f"Data refresh failed: {str(e)}"
+        print(f"[load] ❌ {error_msg}")
+        return {
+            "success": False,
+            "data_year": data_year if "data_year" in locals() else ACTIVE_DATA_YEAR,
+            "records_loaded": 0,
+            "form_responses": 0,
+            "total": 0,
+            "error": error_msg
+        }
+
+
+def refresh_form_responses_only(data_year: int = ACTIVE_DATA_YEAR) -> dict:
+    """
+    ADMIN ONLY: Refresh just Google Form records.
+
+    Historical Excel rows and user reports are preserved. Existing rows with
+    source='form' are cleared before the latest valid form responses are loaded.
+    """
+    try:
+        data_year = int(data_year)
+        print(f"[load] 🔄 Starting {data_year} form-only refresh...")
+        existing_sources = db.get_source_counts(data_year)
+        previous_form_records = existing_sources.get("form", 0)
+
+        records = _build_form_records(data_year)
+        if not db.delete_records_by_source("form", data_year):
+            return {
+                "success": False,
+                "data_year": data_year,
+                "previous_form_records": previous_form_records,
+                "form_responses": 0,
+                "error": "Could not clear existing form records",
+            }
+
+        ok = db.upsert_records(records) if records else True
+        if not ok:
+            return {
+                "success": False,
+                "data_year": data_year,
+                "previous_form_records": previous_form_records,
+                "form_responses": 0,
+                "error": "Could not insert refreshed form records",
+            }
+
+        print(f"[load] ✅ Form-only refresh complete: {len(records)} rows")
+        return {
+            "success": True,
+            "data_year": data_year,
+            "previous_form_records": previous_form_records,
+            "form_responses": len(records),
+            "error": None,
+        }
+
+    except Exception as e:
+        error_msg = f"Form refresh failed: {str(e)}"
+        print(f"[load] ❌ {error_msg}")
+        return {
+            "success": False,
+            "data_year": data_year if "data_year" in locals() else ACTIVE_DATA_YEAR,
+            "previous_form_records": 0,
+            "form_responses": 0,
+            "error": error_msg,
+        }

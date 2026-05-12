@@ -7,7 +7,7 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import database as db
-from load_data import get_reports, master_df, submit_report
+from load_data import ACTIVE_DATA_YEAR, get_reports, master_df, submit_report
 from recommender import get_rank_statistics, get_recommendations_by_category, recommend
 
 # =====================================================
@@ -1343,7 +1343,7 @@ st.markdown(
 # =====================================================
 
 st.markdown(
-    """
+    f"""
 <div class="vit-header">
     <div class="vit-header-icon">🎓</div>
     <div>
@@ -1352,7 +1352,8 @@ st.markdown(
     </div>
 </div>
 <div class="info-strip">
-    ℹ️ Enter your VITEEE rank on the left, apply filters, and click <strong>Get Recommendations</strong>
+    ℹ️ This predictor is currently using <strong>{ACTIVE_DATA_YEAR}</strong> counselling data.
+    Enter your VITEEE rank on the left, apply filters, and click <strong>Get Recommendations</strong>
     to see your personalised predictions. The predictor uses a <strong>90th percentile cutoff model</strong>
     so outlier ranks don't inflate estimates.
 </div>

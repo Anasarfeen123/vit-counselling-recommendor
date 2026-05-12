@@ -18,6 +18,7 @@ import pandas as pd
 import streamlit as st
 from streamlit_option_menu import option_menu
 import database as db
+import load_data
 
 # =====================================================
 # PAGE CONFIG
@@ -64,25 +65,95 @@ def check_admin_password():
 
 st.markdown("""
     <style>
+        .stApp {
+            background: #f6f8fb;
+        }
+        [data-testid="stSidebar"] {
+            background: #111827;
+        }
+        [data-testid="stSidebar"] * {
+            color: #f9fafb;
+        }
+        [data-testid="stSidebar"] .stMetric {
+            background: rgba(255,255,255,0.08);
+            border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 8px;
+            padding: 12px;
+        }
+        div[data-testid="stMetric"] {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 16px;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.05);
+        }
+        div[data-testid="stMetric"] label {
+            color: #475569;
+        }
+        .admin-hero {
+            background: linear-gradient(135deg, #111827 0%, #1f2937 55%, #334155 100%);
+            border-radius: 10px;
+            padding: 28px;
+            color: #ffffff;
+            margin-bottom: 20px;
+            border: 1px solid rgba(255,255,255,0.08);
+        }
+        .admin-hero h1 {
+            margin: 0;
+            font-size: 34px;
+            line-height: 1.1;
+        }
+        .admin-hero p {
+            margin: 10px 0 0;
+            color: #cbd5e1;
+            font-size: 15px;
+        }
+        .admin-panel {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 18px;
+            box-shadow: 0 8px 24px rgba(15,23,42,0.05);
+            margin-bottom: 18px;
+        }
+        .admin-panel h3 {
+            margin: 0 0 8px;
+            font-size: 18px;
+            color: #111827;
+        }
+        .admin-muted {
+            color: #64748b;
+            font-size: 14px;
+            margin: 0;
+        }
+        .admin-kicker {
+            color: #94a3b8;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .08em;
+            text-transform: uppercase;
+            margin-bottom: 8px;
+        }
         .sidebar-title {
             font-size: 20px;
             font-weight: bold;
-            color: #ef4444;
+            color: #ffffff;
             margin-bottom: 20px;
         }
         .section-header {
             font-size: 16px;
             font-weight: bold;
-            color: #3730a3;
+            color: #e5e7eb;
             margin-top: 20px;
             margin-bottom: 10px;
         }
         .metric-card {
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            background: #ffffff;
             padding: 20px;
-            border-radius: 10px;
-            color: white;
+            border-radius: 8px;
+            color: #111827;
             margin: 10px 0;
+            border: 1px solid #e5e7eb;
         }
         .metric-value {
             font-size: 24px;
@@ -97,25 +168,83 @@ st.markdown("""
             background-color: #f0fdf4;
             padding: 15px;
             border-left: 4px solid #16a34a;
-            border-radius: 5px;
+            border-radius: 8px;
             margin: 10px 0;
         }
         .warning-box {
             background-color: #fefce8;
             padding: 15px;
             border-left: 4px solid #eab308;
-            border-radius: 5px;
+            border-radius: 8px;
             margin: 10px 0;
         }
         .error-box {
             background-color: #fef2f2;
             padding: 15px;
             border-left: 4px solid #dc2626;
-            border-radius: 5px;
+            border-radius: 8px;
             margin: 10px 0;
+        }
+        .stButton > button, .stDownloadButton > button {
+            border-radius: 8px;
+            font-weight: 700;
+        }
+        .stTabs [data-baseweb="tab-list"] {
+            gap: 8px;
+        }
+        .stTabs [data-baseweb="tab"] {
+            background: #ffffff;
+            border: 1px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px 14px;
         }
     </style>
 """, unsafe_allow_html=True)
+
+
+def admin_hero(title: str, subtitle: str) -> None:
+    st.markdown(
+        f"""
+        <div class="admin-hero">
+            <div class="admin-kicker">Admin Console</div>
+            <h1>{title}</h1>
+            <p>{subtitle}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def admin_panel(title: str, body: str) -> None:
+    st.markdown(
+        f"""
+        <div class="admin-panel">
+            <h3>{title}</h3>
+            <p class="admin-muted">{body}</p>
+        </div>
+        """,
+        unsafe_allow_html=True,
+    )
+
+
+def data_year_options() -> list[int]:
+    years = set(db.get_available_data_years())
+    years.update({db.DEFAULT_DATA_YEAR, 2026})
+    return sorted(years)
+
+
+def selected_admin_year(key: str = "admin_data_year") -> int:
+    options = data_year_options()
+    default_index = options.index(db.DEFAULT_DATA_YEAR) if db.DEFAULT_DATA_YEAR in options else 0
+    return int(
+        st.selectbox(
+            "Data Year",
+            options,
+            index=default_index,
+            key=key,
+            help="2025 is the current dataset. Keep 2026 separate when you add it later.",
+        )
+    )
 
 # =====================================================
 # MAIN APP
@@ -137,6 +266,7 @@ if __name__ == "__main__":
             record_count = db.count_records()
             report_count = len(db.fetch_all_reports()) if db.fetch_all_reports() is not None else 0
             sources = db.get_source_counts()
+            years = db.get_available_data_years()
             
             col1, col2 = st.columns(2)
             with col1:
@@ -146,6 +276,7 @@ if __name__ == "__main__":
             
             if sources:
                 st.caption(f"Sources: Historical={sources.get('historical', 0)}, Form={sources.get('form', 0)}")
+            st.caption(f"Years: {', '.join(str(year) for year in years)}")
         except Exception as e:
             st.error(f"Error loading stats: {str(e)}")
 
@@ -154,8 +285,8 @@ if __name__ == "__main__":
         # Navigation menu
         selected_menu = option_menu(
             "Navigation",
-            ["Dashboard", "Records", "Reports", "Bulk Import", "Bulk Export", "Analytics", "Settings"],
-            icons=["speedometer2", "table", "chat-left-text", "upload", "download", "bar-chart", "gear"],
+            ["Dashboard", "Records", "Reports", "Bulk Import", "Bulk Export", "Analytics", "Data Refresh", "Settings"],
+            icons=["speedometer2", "table", "chat-left-text", "upload", "download", "bar-chart", "arrow-clockwise", "gear"],
             menu_icon="menu-button-wide",
             default_index=0,
         )
@@ -165,8 +296,17 @@ if __name__ == "__main__":
     # ════════════════════════════════════════════════════════════════════
     
     if selected_menu == "Dashboard":
-        st.title("⚙️ VIT Admin Dashboard")
-        st.markdown("Welcome to the admin control panel. Manage all data here.")
+        admin_hero(
+            "VIT Admin Dashboard",
+            "Monitor counselling records, user reports, imports, exports, and refresh jobs from one place.",
+        )
+
+        if st.session_state.get("last_form_refresh_result"):
+            result = st.session_state.pop("last_form_refresh_result")
+            st.success(
+                f"Form data refreshed: {result['form_responses']} rows loaded "
+                f"(previously {result['previous_form_records']})."
+            )
         
         col1, col2, col3, col4 = st.columns(4)
         
@@ -175,6 +315,7 @@ if __name__ == "__main__":
             reports_df = db.fetch_all_reports()
             report_count = len(reports_df) if reports_df is not None else 0
             all_records = db.fetch_all_records()
+            active_records = all_records[all_records["data_year"] == db.DEFAULT_DATA_YEAR] if "data_year" in all_records.columns else all_records
             sources = db.get_source_counts()
             
             with col1:
@@ -184,15 +325,51 @@ if __name__ == "__main__":
                 st.metric("📝 Total Reports", report_count)
             
             with col3:
-                st.metric("📊 Unique Ranks", len(all_records['Rank'].unique()) if not all_records.empty else 0)
+                st.metric("📊 2025 Unique Ranks", len(active_records['Rank'].unique()) if not active_records.empty else 0)
             
             with col4:
-                st.metric("🏛️ Campuses", len(all_records['Campus'].unique()) if not all_records.empty else 0)
+                st.metric("🏛️ Data Years", len(all_records['data_year'].unique()) if not all_records.empty and 'data_year' in all_records.columns else 1)
         
         except Exception as e:
             st.error(f"Error loading dashboard metrics: {str(e)}")
         
         st.divider()
+
+        admin_panel(
+            "Quick Admin Actions",
+            "Use the form-only refresh when new Google Form responses should appear without resetting historical data or reports.",
+        )
+
+        action_col1, action_col2, action_col3 = st.columns([1, 1, 2])
+        with action_col1:
+            dashboard_refresh_year = selected_admin_year("dashboard_refresh_year")
+            if st.button("Refresh Form Data", type="primary", use_container_width=True, key="dashboard_form_refresh"):
+                st.session_state.confirm_form_refresh = True
+        with action_col2:
+            if st.button("Clear Streamlit Cache", use_container_width=True, key="dashboard_clear_cache"):
+                st.cache_resource.clear()
+                st.success("Cache cleared. Refresh the page if old data is still visible.")
+        with action_col3:
+            st.info("Form refresh replaces only rows where source = 'form' for the selected year. Historical rows and reports stay intact.")
+
+        if st.session_state.get("confirm_form_refresh"):
+            st.warning("Refresh only Google Form data? Existing form-sourced rows will be replaced with the latest valid sheet rows.")
+            confirm_col, cancel_col = st.columns(2)
+            with confirm_col:
+                if st.button("Yes, Refresh Form Rows", type="primary", use_container_width=True, key="dashboard_confirm_form_refresh"):
+                    with st.spinner("Refreshing Google Form data..."):
+                        result = load_data.refresh_form_responses_only(dashboard_refresh_year)
+                    if result["success"]:
+                        st.session_state.last_form_refresh_result = result
+                        st.session_state.confirm_form_refresh = False
+                        st.cache_resource.clear()
+                        st.rerun()
+                    else:
+                        st.error(f"Form refresh failed: {result['error']}")
+            with cancel_col:
+                if st.button("Cancel", use_container_width=True, key="dashboard_cancel_form_refresh"):
+                    st.session_state.confirm_form_refresh = False
+                    st.rerun()
         
         # Recent records
         st.subheader("📊 Recent Records")
@@ -232,7 +409,7 @@ if __name__ == "__main__":
                 all_records = db.fetch_all_records()
                 
                 if not all_records.empty:
-                    col1, col2, col3, col4 = st.columns(4)
+                    col1, col2, col3, col4, col5 = st.columns(5)
                     
                     with col1:
                         rank_filter = st.text_input("Filter by Rank (optional)")
@@ -254,6 +431,12 @@ if __name__ == "__main__":
                             ["All"] + sorted(all_records['source'].unique().tolist()),
                             key="source_view"
                         )
+                    with col5:
+                        year_filter = st.selectbox(
+                            "Filter by Year",
+                            ["All"] + sorted(all_records["data_year"].dropna().astype(int).unique().tolist()),
+                            key="year_view",
+                        )
                     
                     # Apply filters
                     filtered = all_records.copy()
@@ -269,6 +452,9 @@ if __name__ == "__main__":
                     
                     if source_filter != "All":
                         filtered = filtered[filtered['source'] == source_filter]
+
+                    if year_filter != "All":
+                        filtered = filtered[filtered["data_year"] == int(year_filter)]
                     
                     st.success(f"✅ Showing {len(filtered)} records")
                     st.dataframe(filtered, use_container_width=True, hide_index=True)
@@ -301,6 +487,7 @@ if __name__ == "__main__":
                 )
             
             source = st.selectbox("Source", ["historical", "form"], key="source_add")
+            data_year = st.selectbox("Data Year", data_year_options(), index=data_year_options().index(db.DEFAULT_DATA_YEAR), key="year_add")
             
             if st.button("➕ Add Record", type="primary", use_container_width=True):
                 try:
@@ -309,7 +496,8 @@ if __name__ == "__main__":
                         "campus": campus,
                         "branch": branch,
                         "fee": int(fee),
-                        "source": source
+                        "source": source,
+                        "data_year": int(data_year),
                     }])
                     
                     if success:
@@ -326,13 +514,25 @@ if __name__ == "__main__":
                 all_records = db.fetch_all_records()
                 
                 if not all_records.empty:
-                    selected_rank = st.selectbox(
-                        "Select Record by Rank",
-                        sorted(all_records['Rank'].unique()),
-                        key="edit_rank"
+                    edit_year = st.selectbox(
+                        "Edit Year",
+                        sorted(all_records["data_year"].dropna().astype(int).unique().tolist()),
+                        key="edit_year",
+                    )
+                    editable_records = all_records[all_records["data_year"] == int(edit_year)].reset_index(drop=True)
+                    selected_idx = st.selectbox(
+                        "Select Record",
+                        range(len(editable_records)),
+                        format_func=lambda i: (
+                            f"{editable_records.iloc[i]['Rank']} | "
+                            f"{editable_records.iloc[i]['Campus']} | "
+                            f"{editable_records.iloc[i]['Branch']} | "
+                            f"Fee {editable_records.iloc[i]['Fee']}"
+                        ),
+                        key="edit_record_idx",
                     )
                     
-                    record = all_records[all_records['Rank'] == selected_rank].iloc[0]
+                    record = editable_records.iloc[selected_idx]
                     
                     st.write("**Current Record:**")
                     st.json({
@@ -340,16 +540,18 @@ if __name__ == "__main__":
                         "Campus": record['Campus'],
                         "Branch": record['Branch'],
                         "Fee": int(record['Fee']),
-                        "Source": record['source']
+                        "Source": record['source'],
+                        "Data Year": int(record["data_year"]),
                     })
                     
                     col1, col2 = st.columns(2)
                     
                     with col1:
+                        campus_options = sorted(set(all_records["Campus"].dropna().tolist()) | {"Vellore", "Chennai", "Bhopal", "Amaravati"})
                         new_campus = st.selectbox(
                             "Update Campus",
-                            ["VIT Chennai", "VIT Vellore", "VIT Pune", "VIT Amravati"],
-                            index=["VIT Chennai", "VIT Vellore", "VIT Pune", "VIT Amravati"].index(record['Campus']),
+                            campus_options,
+                            index=campus_options.index(record["Campus"]) if record["Campus"] in campus_options else 0,
                             key="edit_campus"
                         )
                         new_branch = st.text_input("Update Branch", value=record['Branch'])
@@ -367,15 +569,22 @@ if __name__ == "__main__":
                             index=["historical", "form"].index(record['source']),
                             key="edit_source"
                         )
+                        new_data_year = st.selectbox(
+                            "Update Data Year",
+                            data_year_options(),
+                            index=data_year_options().index(int(record["data_year"])) if int(record["data_year"]) in data_year_options() else 0,
+                            key="edit_data_year",
+                        )
                     
                     if st.button("✅ Update Record", type="primary", use_container_width=True):
                         try:
                             success = db.upsert_records([{
-                                "rank": int(selected_rank),
+                                "rank": int(record["Rank"]),
                                 "campus": new_campus,
                                 "branch": new_branch,
                                 "fee": int(new_fee),
-                                "source": new_source
+                                "source": new_source,
+                                "data_year": int(new_data_year),
                             }])
                             
                             if success:
@@ -615,6 +824,7 @@ if __name__ == "__main__":
             - `branch` (text)
             - `fee` (integer: 1-5)
             - `source` (text: 'historical' or 'form')
+            - `data_year` (optional, defaults to 2025; use 2026 for next year)
             """)
             
             records_file = st.file_uploader(
@@ -635,6 +845,8 @@ if __name__ == "__main__":
                     with col_b:
                         if st.button("📥 Import Records", type="primary", use_container_width=True, key="import_records_btn"):
                             try:
+                                if "data_year" not in df.columns:
+                                    df["data_year"] = db.DEFAULT_DATA_YEAR
                                 records = df.to_dict('records')
                                 success = db.upsert_records(records)
                                 
@@ -886,6 +1098,107 @@ if __name__ == "__main__":
             st.error(f"Error loading analytics: {str(e)}")
 
     # ════════════════════════════════════════════════════════════════════
+    # DATA REFRESH TAB
+    # ════════════════════════════════════════════════════════════════════
+
+    elif selected_menu == "Data Refresh":
+        admin_hero(
+            "Data Refresh",
+            "Refresh live form rows independently, or run a full source rebuild when you need a complete reset.",
+        )
+
+        if st.session_state.get("last_form_refresh_result"):
+            result = st.session_state.pop("last_form_refresh_result")
+            st.success(
+                f"Form data refreshed: {result['form_responses']} rows loaded "
+                f"(previously {result['previous_form_records']})."
+            )
+
+        if st.session_state.get("last_full_refresh_result"):
+            result = st.session_state.pop("last_full_refresh_result")
+            st.success(
+                f"Full refresh complete: {result['records_loaded']} historical rows, "
+                f"{result['form_responses']} form rows, {result['total']} total."
+            )
+
+        try:
+            sources = db.get_source_counts()
+            reports_df = db.fetch_all_reports()
+            report_count = len(reports_df) if reports_df is not None else 0
+            refresh_year = selected_admin_year("refresh_page_year")
+            year_sources = db.get_source_counts(refresh_year)
+
+            col1, col2, col3 = st.columns(3)
+            with col1:
+                st.metric(f"{refresh_year} Historical Rows", year_sources.get("historical", 0))
+            with col2:
+                st.metric(f"{refresh_year} Form Rows", year_sources.get("form", 0))
+            with col3:
+                st.metric("All Reports", report_count)
+        except Exception as e:
+            st.error(f"Error loading refresh stats: {str(e)}")
+            refresh_year = db.DEFAULT_DATA_YEAR
+
+        st.divider()
+
+        form_col, full_col = st.columns(2)
+
+        with form_col:
+            admin_panel(
+                "Refresh Form Data Only",
+                "Replaces rows imported from Google Forms for the selected year while preserving historical Excel records and user reports.",
+            )
+            if st.button("Refresh Form Data Only", type="primary", use_container_width=True, key="refresh_form_only"):
+                st.session_state.confirm_form_refresh = True
+
+            if st.session_state.get("confirm_form_refresh"):
+                st.warning("This will delete existing source='form' rows and reload the latest valid Google Sheet responses.")
+                confirm_col, cancel_col = st.columns(2)
+                with confirm_col:
+                    if st.button("Confirm Form Refresh", type="primary", use_container_width=True, key="confirm_refresh_form_only"):
+                        with st.spinner("Refreshing Google Form rows..."):
+                            result = load_data.refresh_form_responses_only(refresh_year)
+                        if result["success"]:
+                            st.session_state.last_form_refresh_result = result
+                            st.session_state.confirm_form_refresh = False
+                            st.cache_resource.clear()
+                            st.rerun()
+                        else:
+                            st.error(f"Form refresh failed: {result['error']}")
+                with cancel_col:
+                    if st.button("Cancel", use_container_width=True, key="cancel_refresh_form_only"):
+                        st.session_state.confirm_form_refresh = False
+                        st.rerun()
+
+        with full_col:
+            admin_panel(
+                "Full Source Refresh",
+                "Deletes records for the selected year, then reloads that year's historical Excel data and Google Form responses.",
+            )
+            st.error("Use this only when you intentionally want to rebuild the selected year.")
+            if st.button("Full Refresh From Sources", use_container_width=True, key="refresh_all_sources"):
+                st.session_state.confirm_refresh = True
+
+            if st.session_state.get("confirm_refresh"):
+                st.warning(f"This deletes current {refresh_year} records before reloading sources.")
+                confirm_col, cancel_col = st.columns(2)
+                with confirm_col:
+                    if st.button("Confirm Full Refresh", type="secondary", use_container_width=True, key="confirm_refresh_all_sources"):
+                        with st.spinner("Refreshing all source data..."):
+                            result = load_data.refresh_from_sources(refresh_year)
+                        if result["success"]:
+                            st.session_state.last_full_refresh_result = result
+                            st.session_state.confirm_refresh = False
+                            st.cache_resource.clear()
+                            st.rerun()
+                        else:
+                            st.error(f"Full refresh failed: {result['error']}")
+                with cancel_col:
+                    if st.button("Cancel", use_container_width=True, key="cancel_refresh_all_sources"):
+                        st.session_state.confirm_refresh = False
+                        st.rerun()
+
+    # ════════════════════════════════════════════════════════════════════
     # SETTINGS TAB
     # ════════════════════════════════════════════════════════════════════
     
@@ -949,3 +1262,106 @@ if __name__ == "__main__":
                         "User": "Admin",
                         "Timestamp": datetime.now().isoformat()
                     })
+                
+                st.divider()
+                
+                st.subheader("🗑️ Data Refresh / Reset")
+                st.error("⚠️ DANGER ZONE - These actions cannot be undone!")
+                
+                col_refresh1, col_refresh2 = st.columns(2)
+                
+                with col_refresh1:
+                    if st.button("🗑️ DELETE ALL RECORDS", type="secondary", use_container_width=True):
+                        st.session_state.confirm_delete_records = True
+                    
+                    if st.session_state.get("confirm_delete_records"):
+                        st.warning("⚠️ Are you absolutely sure? This will delete ALL counselling records!")
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            if st.button("✅ YES, DELETE ALL RECORDS", type="secondary", use_container_width=True):
+                                try:
+                                    success = db.delete_all_records()
+                                    if success:
+                                        st.success("✅ All records deleted successfully!")
+                                        st.session_state.confirm_delete_records = False
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Failed to delete records")
+                                except Exception as e:
+                                    st.error(f"❌ Error: {str(e)}")
+                        
+                        with col_b:
+                            if st.button("❌ CANCEL", use_container_width=True):
+                                st.session_state.confirm_delete_records = False
+                                st.rerun()
+                
+                with col_refresh2:
+                    if st.button("📋 DELETE ALL REPORTS", type="secondary", use_container_width=True):
+                        st.session_state.confirm_delete_reports = True
+                    
+                    if st.session_state.get("confirm_delete_reports"):
+                        st.warning("⚠️ Are you absolutely sure? This will delete ALL user reports!")
+                        col_a, col_b = st.columns(2)
+                        with col_a:
+                            if st.button("✅ YES, DELETE ALL REPORTS", type="secondary", use_container_width=True):
+                                try:
+                                    success = db.delete_all_reports()
+                                    if success:
+                                        st.success("✅ All reports deleted successfully!")
+                                        st.session_state.confirm_delete_reports = False
+                                        st.rerun()
+                                    else:
+                                        st.error("❌ Failed to delete reports")
+                                except Exception as e:
+                                    st.error(f"❌ Error: {str(e)}")
+                        
+                        with col_b:
+                            if st.button("❌ CANCEL", use_container_width=True):
+                                st.session_state.confirm_delete_reports = False
+                                st.rerun()
+                
+                st.divider()
+                
+                st.subheader("🔄 REFRESH FROM SOURCES")
+                settings_refresh_year = selected_admin_year("settings_refresh_year")
+                st.info("📌 Delete selected-year records and reload from Google Sheets + Historical Excel")
+                st.markdown("""
+                This will:
+                - 🗑️ Delete current counselling records for the selected year
+                - 📊 Reload that year's historical data from Excel
+                - 📋 Reload form responses from Google Sheets for the selected year
+                """)
+                
+                if st.button("🔄 REFRESH NOW", type="secondary", use_container_width=True):
+                    st.session_state.confirm_refresh = True
+                
+                if st.session_state.get("confirm_refresh"):
+                    st.error(f"⚠️ WARNING: This will rebuild {settings_refresh_year} counselling records!")
+                    col_a, col_b = st.columns(2)
+                    
+                    with col_a:
+                        if st.button("✅ YES, REFRESH FROM SOURCES", type="secondary", use_container_width=True):
+                            try:
+                                # Show loading spinner
+                                with st.spinner("⏳ Refreshing data from sources..."):
+                                    result = load_data.refresh_from_sources(settings_refresh_year)
+                                
+                                if result["success"]:
+                                    st.success(f"✅ Data refresh successful!")
+                                    st.success(f"📊 Historical records loaded: {result['records_loaded']}")
+                                    st.success(f"📋 Form responses loaded: {result['form_responses']}")
+                                    st.success(f"📈 Total records: {result['total']}")
+                                    st.balloons()
+                                    st.session_state.confirm_refresh = False
+                                    import time
+                                    time.sleep(1)
+                                    st.rerun()
+                                else:
+                                    st.error(f"❌ Refresh failed: {result['error']}")
+                            except Exception as e:
+                                st.error(f"❌ Error: {str(e)}")
+                    
+                    with col_b:
+                        if st.button("❌ CANCEL", use_container_width=True):
+                            st.session_state.confirm_refresh = False
+                            st.rerun()

@@ -25,6 +25,8 @@ import pandas as pd
 import streamlit as st
 from supabase import Client, create_client
 
+DEFAULT_DATA_YEAR = 2025
+
 # ── Singleton client ─────────────────────────────────────────────────────────
 
 
@@ -61,9 +63,10 @@ def count_records() -> int:
 def upsert_records(records: list[dict]) -> bool:
     """
     Bulk-upsert counselling records.
-    Conflict resolution key: (rank, campus, branch, fee) — do nothing on conflict.
+    Conflict resolution key: (rank, campus, branch, fee, data_year).
 
     Each record dict must have keys: rank, campus, branch, fee, source.
+    data_year is optional and defaults to 2025 for legacy/current data.
     Returns True on success, False on any error.
     """
     if not records:
@@ -72,12 +75,39 @@ def upsert_records(records: list[dict]) -> bool:
         sb = get_supabase()
         chunk_size = 500
         for i in range(0, len(records), chunk_size):
+            chunk = [
+                {
+                    **record,
+                    "data_year": int(record.get("data_year", DEFAULT_DATA_YEAR)),
+                }
+                for record in records[i : i + chunk_size]
+            ]
             sb.table("counselling_records").upsert(
-                records[i : i + chunk_size],
-                on_conflict="rank,campus,branch,fee",
+                chunk,
+                on_conflict="rank,campus,branch,fee,data_year",
             ).execute()
         return True
     except Exception as exc:
+        # Backward compatibility while the deployed Supabase table still has
+        # the original 2025-only schema without data_year.
+        if all(int(record.get("data_year", DEFAULT_DATA_YEAR)) == DEFAULT_DATA_YEAR for record in records):
+            try:
+                sb = get_supabase()
+                chunk_size = 500
+                for i in range(0, len(records), chunk_size):
+                    legacy_chunk = []
+                    for record in records[i : i + chunk_size]:
+                        legacy_record = dict(record)
+                        legacy_record.pop("data_year", None)
+                        legacy_chunk.append(legacy_record)
+                    sb.table("counselling_records").upsert(
+                        legacy_chunk,
+                        on_conflict="rank,campus,branch,fee",
+                    ).execute()
+                return True
+            except Exception as legacy_exc:
+                print(f"[db] upsert_records legacy error: {legacy_exc}")
+
         print(f"[db] upsert_records error: {exc}")
         return False
 
@@ -87,7 +117,8 @@ def fetch_all_records() -> pd.DataFrame:
     Fetch every row from counselling_records with pagination.
 
     Returns a DataFrame with columns:
-        Rank (int), Campus (str), Branch (str), Fee (int), source (str)
+        Rank (int), Campus (str), Branch (str), Fee (int), source (str),
+        data_year (int)
     Returns an empty DataFrame on error.
     """
     try:
@@ -95,14 +126,24 @@ def fetch_all_records() -> pd.DataFrame:
         rows: list[dict] = []
         offset = 0
         page_size = 1000
+        select_cols = "rank,campus,branch,fee,source,data_year"
 
         while True:
-            resp = (
-                sb.table("counselling_records")
-                .select("rank,campus,branch,fee,source")
-                .range(offset, offset + page_size - 1)
-                .execute()
-            )
+            try:
+                resp = (
+                    sb.table("counselling_records")
+                    .select(select_cols)
+                    .range(offset, offset + page_size - 1)
+                    .execute()
+                )
+            except Exception:
+                select_cols = "rank,campus,branch,fee,source"
+                resp = (
+                    sb.table("counselling_records")
+                    .select(select_cols)
+                    .range(offset, offset + page_size - 1)
+                    .execute()
+                )
             if not resp.data:
                 break
             rows.extend(resp.data)
@@ -111,7 +152,9 @@ def fetch_all_records() -> pd.DataFrame:
             offset += page_size
 
         if not rows:
-            return pd.DataFrame(columns=["Rank", "Campus", "Branch", "Fee", "source"])
+            return pd.DataFrame(
+                columns=["Rank", "Campus", "Branch", "Fee", "source", "data_year"]
+            )
 
         df = pd.DataFrame(rows).rename(
             columns={
@@ -123,22 +166,41 @@ def fetch_all_records() -> pd.DataFrame:
         )
         df["Rank"] = df["Rank"].astype(int)
         df["Fee"] = df["Fee"].astype(int)
+        if "data_year" not in df.columns:
+            df["data_year"] = DEFAULT_DATA_YEAR
+        df["data_year"] = df["data_year"].fillna(DEFAULT_DATA_YEAR).astype(int)
         return df
 
     except Exception as exc:
         print(f"[db] fetch_all_records error: {exc}")
-        return pd.DataFrame(columns=["Rank", "Campus", "Branch", "Fee", "source"])
+        return pd.DataFrame(
+            columns=["Rank", "Campus", "Branch", "Fee", "source", "data_year"]
+        )
 
 
-def get_source_counts() -> dict[str, int]:
+def get_source_counts(data_year: int | None = None) -> dict[str, int]:
     """Return {'historical': N, 'form': M} counts for the data quality display."""
     try:
         df = fetch_all_records()
+        if data_year is not None and "data_year" in df.columns:
+            df = df[df["data_year"] == int(data_year)]
         if df.empty or "source" not in df.columns:
             return {}
         return df["source"].value_counts().to_dict()
     except Exception:
         return {}
+
+
+def get_available_data_years() -> list[int]:
+    """Return all data years found in counselling_records, defaulting to 2025."""
+    try:
+        df = fetch_all_records()
+        if df.empty or "data_year" not in df.columns:
+            return [DEFAULT_DATA_YEAR]
+        years = sorted(df["data_year"].dropna().astype(int).unique().tolist())
+        return years or [DEFAULT_DATA_YEAR]
+    except Exception:
+        return [DEFAULT_DATA_YEAR]
 
 
 # ── reports ──────────────────────────────────────────────────────────────────
@@ -221,6 +283,106 @@ def delete_report(report_id: int) -> bool:
         return True
     except Exception as exc:
         print(f"[db] delete_report error: {exc}")
+        return False
+
+
+def delete_all_records() -> bool:
+    """
+    Delete ALL records from counselling_records table.
+    ⚠️ WARNING: This action cannot be undone!
+    Returns True on success, False on any error.
+    """
+    try:
+        get_supabase().table("counselling_records").delete().neq("id", -1).execute()
+        return True
+    except Exception as exc:
+        print(f"[db] delete_all_records error: {exc}")
+        return False
+
+
+def delete_records_by_source(source: str, data_year: int | None = None) -> bool:
+    """
+    Delete counselling_records rows for one source, for example 'form'.
+    Returns True on success, False on any error.
+    """
+    try:
+        query = get_supabase().table("counselling_records").delete().eq(
+            "source", str(source)
+        )
+        if data_year is not None:
+            try:
+                query = query.eq("data_year", int(data_year))
+            except Exception:
+                pass
+        query.execute()
+        return True
+    except Exception as exc:
+        if data_year == DEFAULT_DATA_YEAR:
+            try:
+                get_supabase().table("counselling_records").delete().eq(
+                    "source", str(source)
+                ).execute()
+                return True
+            except Exception:
+                pass
+        print(f"[db] delete_records_by_source error: {exc}")
+        return False
+
+
+def delete_records_by_year(data_year: int) -> bool:
+    """
+    Delete counselling_records rows for one data year.
+    Returns True on success, False on any error.
+    """
+    try:
+        get_supabase().table("counselling_records").delete().eq(
+            "data_year", int(data_year)
+        ).execute()
+        return True
+    except Exception as exc:
+        if int(data_year) == DEFAULT_DATA_YEAR:
+            return delete_all_records()
+        print(f"[db] delete_records_by_year error: {exc}")
+        return False
+
+
+def delete_all_reports() -> bool:
+    """
+    Delete ALL reports from reports table.
+    ⚠️ WARNING: This action cannot be undone!
+    Returns True on success, False on any error.
+    """
+    try:
+        get_supabase().table("reports").delete().neq("id", -1).execute()
+        return True
+    except Exception as exc:
+        print(f"[db] delete_all_reports error: {exc}")
+        return False
+
+
+def refresh_all_data(records: list[dict]) -> bool:
+    """
+    Delete all existing data and reload with fresh records.
+    ⚠️ WARNING: This action cannot be undone!
+    Returns True on success, False on any error.
+    """
+    try:
+        # Delete all reports first
+        get_supabase().table("reports").delete().neq("id", -1).execute()
+        # Delete all records
+        get_supabase().table("counselling_records").delete().neq("id", -1).execute()
+        
+        # Re-insert fresh records
+        if records:
+            chunk_size = 500
+            for i in range(0, len(records), chunk_size):
+                get_supabase().table("counselling_records").insert(
+                    records[i : i + chunk_size]
+                ).execute()
+        
+        return True
+    except Exception as exc:
+        print(f"[db] refresh_all_data error: {exc}")
         return False
 
 
