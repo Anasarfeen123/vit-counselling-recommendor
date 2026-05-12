@@ -29,6 +29,27 @@ from oauth2client.service_account import ServiceAccountCredentials
 import database as db
 
 DEFAULT_DATA_YEAR = db.DEFAULT_DATA_YEAR
+DATA_SHARE_FORM_URL = "https://forms.gle/VG28i72zpKetFA4W6"
+
+
+def _parse_years(value) -> list[int]:
+    """Accept Streamlit secrets as a list or comma-separated string."""
+    if value is None:
+        return []
+    if isinstance(value, str):
+        raw_years = re.split(r"[, ]+", value.strip())
+    else:
+        raw_years = value
+
+    years: list[int] = []
+    for raw_year in raw_years:
+        if raw_year in (None, ""):
+            continue
+        try:
+            years.append(int(raw_year))
+        except (TypeError, ValueError):
+            continue
+    return years
 
 
 def _active_data_year() -> int:
@@ -42,6 +63,46 @@ def _active_data_year() -> int:
 ACTIVE_DATA_YEAR = _active_data_year()
 
 
+def configured_data_years() -> list[int]:
+    """
+    Years intentionally exposed to admin controls.
+
+    To add the next junior batch later, add this to Streamlit secrets:
+        active_data_year = 2026
+        available_data_years = "2025,2026"
+    """
+    years = {DEFAULT_DATA_YEAR, ACTIVE_DATA_YEAR}
+    try:
+        years.update(_parse_years(st.secrets.get("available_data_years")))
+    except Exception:
+        pass
+    years.update(_available_historical_years())
+    return sorted(years)
+
+
+def data_share_form_url(data_year: int = ACTIVE_DATA_YEAR) -> str:
+    """
+    Return the form URL for the active public batch.
+
+    Optional secrets:
+        data_share_form_url = "https://forms.gle/..."
+
+        [data_share_form_urls]
+        2025 = "https://forms.gle/..."
+        2026 = "https://forms.gle/..."
+    """
+    try:
+        urls = st.secrets.get("data_share_form_urls", {})
+        if str(int(data_year)) in urls:
+            return str(urls[str(int(data_year))])
+    except Exception:
+        pass
+    try:
+        return str(st.secrets.get("data_share_form_url", DATA_SHARE_FORM_URL))
+    except Exception:
+        return DATA_SHARE_FORM_URL
+
+
 def _historical_file_for_year(data_year: int) -> Path:
     matches = sorted(Path("data").glob(f"*{int(data_year)}*.xlsx"))
     if matches:
@@ -49,6 +110,21 @@ def _historical_file_for_year(data_year: int) -> Path:
     if int(data_year) == DEFAULT_DATA_YEAR:
         return Path("data/VIT Counselling Data ( 2025 ).xlsx")
     raise FileNotFoundError(f"No historical Excel file found in data/ for {data_year}")
+
+
+def _empty_historical_df(data_year: int) -> pd.DataFrame:
+    return pd.DataFrame(
+        columns=["Rank", "Campus", "Branch", "Fee", "source", "data_year"]
+    ).astype(
+        {
+            "Rank": "int64",
+            "Campus": "object",
+            "Branch": "object",
+            "Fee": "int64",
+            "source": "object",
+            "data_year": "int64",
+        }
+    )
 
 
 def _available_historical_years() -> list[int]:
@@ -331,7 +407,11 @@ def _seed_historical() -> int:
 
 def _load_historical_df(data_year: int) -> pd.DataFrame:
     """Load and normalise one year's historical Excel file."""
-    hist = pd.read_excel(_historical_file_for_year(data_year))
+    try:
+        hist = pd.read_excel(_historical_file_for_year(data_year))
+    except FileNotFoundError:
+        print(f"[load] ⚠ No historical Excel file found for {data_year}; using DB/form rows only")
+        return _empty_historical_df(data_year)
     hist.columns = ["Rank", "Campus", "Branch", "Fee"]
     hist = hist.dropna()
     hist["Rank"] = hist["Rank"].astype(int)

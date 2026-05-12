@@ -15,6 +15,7 @@ Run with:
 from datetime import datetime
 import io
 import pandas as pd
+import plotly.express as px
 import streamlit as st
 from streamlit_option_menu import option_menu
 import database as db
@@ -34,6 +35,14 @@ st.set_page_config(
 # =====================================================
 # ADMIN AUTHENTICATION
 # =====================================================
+
+def pie_chart_from_counts(counts: pd.Series, title: str) -> None:
+    """Render a pie chart from a value_counts Series."""
+    chart_df = counts.rename_axis("Category").reset_index(name="Count")
+    fig = px.pie(chart_df, values="Count", names="Category", title=title)
+    fig.update_traces(textposition="inside", textinfo="percent+label")
+    fig.update_layout(margin=dict(l=10, r=10, t=50, b=10), height=360)
+    st.plotly_chart(fig, use_container_width=True)
 
 def check_admin_password():
     """Simple admin authentication."""
@@ -229,7 +238,7 @@ def admin_panel(title: str, body: str) -> None:
 
 def data_year_options() -> list[int]:
     years = set(db.get_available_data_years())
-    years.update({db.DEFAULT_DATA_YEAR, 2026})
+    years.update(load_data.configured_data_years())
     return sorted(years)
 
 
@@ -315,7 +324,11 @@ if __name__ == "__main__":
             reports_df = db.fetch_all_reports()
             report_count = len(reports_df) if reports_df is not None else 0
             all_records = db.fetch_all_records()
-            active_records = all_records[all_records["data_year"] == db.DEFAULT_DATA_YEAR] if "data_year" in all_records.columns else all_records
+            active_records = (
+                all_records[all_records["data_year"] == load_data.ACTIVE_DATA_YEAR]
+                if "data_year" in all_records.columns
+                else all_records
+            )
             sources = db.get_source_counts()
             
             with col1:
@@ -325,7 +338,10 @@ if __name__ == "__main__":
                 st.metric("📝 Total Reports", report_count)
             
             with col3:
-                st.metric("📊 2025 Unique Ranks", len(active_records['Rank'].unique()) if not active_records.empty else 0)
+                st.metric(
+                    f"📊 {load_data.ACTIVE_DATA_YEAR} Unique Ranks",
+                    len(active_records['Rank'].unique()) if not active_records.empty else 0,
+                )
             
             with col4:
                 st.metric("🏛️ Data Years", len(all_records['data_year'].unique()) if not all_records.empty and 'data_year' in all_records.columns else 1)
@@ -738,7 +754,7 @@ if __name__ == "__main__":
                         with col1:
                             st.subheader("Reports by Predicted Chance")
                             chance_counts = reports['Predicted Chance'].value_counts()
-                            st.pie_chart(chance_counts)
+                            pie_chart_from_counts(chance_counts, "Reports by Predicted Chance")
                         
                         with col2:
                             st.subheader("Distribution")
@@ -824,7 +840,7 @@ if __name__ == "__main__":
             - `branch` (text)
             - `fee` (integer: 1-5)
             - `source` (text: 'historical' or 'form')
-            - `data_year` (optional, defaults to 2025; use 2026 for next year)
+            - `data_year` (optional, defaults to the current active year)
             """)
             
             records_file = st.file_uploader(
@@ -846,7 +862,7 @@ if __name__ == "__main__":
                         if st.button("📥 Import Records", type="primary", use_container_width=True, key="import_records_btn"):
                             try:
                                 if "data_year" not in df.columns:
-                                    df["data_year"] = db.DEFAULT_DATA_YEAR
+                                    df["data_year"] = load_data.ACTIVE_DATA_YEAR
                                 records = df.to_dict('records')
                                 success = db.upsert_records(records)
                                 
@@ -1085,7 +1101,7 @@ if __name__ == "__main__":
                 with col1:
                     st.subheader("Records by Source")
                     source_counts = all_records['source'].value_counts()
-                    st.pie_chart(source_counts)
+                    pie_chart_from_counts(source_counts, "Records by Source")
                 
                 with col2:
                     st.subheader("Distribution Table")

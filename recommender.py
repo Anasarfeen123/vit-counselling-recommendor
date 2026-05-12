@@ -276,12 +276,11 @@ def get_chance_priority(chance):
 
 
 def flag_dominated_fee_categories(recommendations):
-    # problem this solves: sometimes a cheaper fee category (e.g. cat 1) for the
-    # same branch+campus has a higher probability than the expensive one (cat 3).
-    # that makes no logical sense — it just means we have fewer responses for cat 3.
-    # so we flag the expensive one as "data_insufficient" and show the cheaper
-    # category's probability instead, with a note explaining the adjustment.
-    # nothing gets deleted — it's just marked and shown differently in the UI.
+    # Higher fee categories should have cutoffs that are at least as high as
+    # lower fee categories for the same campus+branch. Example: Cat 4 should
+    # not have a lower cutoff rank than Cat 3. If that happens, both sides are
+    # marked as a data issue because we cannot safely know which cutoff is bad.
+    # Nothing gets deleted or overwritten; the UI shows the warning in context.
 
     from collections import defaultdict
     groups = defaultdict(list)
@@ -290,36 +289,55 @@ def flag_dominated_fee_categories(recommendations):
 
     result = []
     for (campus, branch), rows in groups.items():
-        # walk through fee categories cheapest-first
         rows_by_fee = sorted(rows, key=lambda x: x["fee_priority"])
 
-        best_prob = -1
-        best_fee  = None
+        for row in rows_by_fee:
+            row["data_insufficient"] = False
+            row["dominant_fee"] = None
+            row["data_issue_type"] = None
+            row["category_cutoff_issues"] = []
+
+        previous_rows = []
 
         for row in rows_by_fee:
-            if row["probability"] >= best_prob:
-                # this fee category is at least as good as any cheaper one — fine
-                row["data_insufficient"]   = False
-                row["dominant_fee"]        = None
-                best_prob = row["probability"]
-                best_fee  = row["fee"]
-            else:
-                # a cheaper category already beats this one — flag it
-                row["data_insufficient"]      = True
-                row["dominant_fee"]           = best_fee
-                row["original_probability"]   = row["probability"]
-                row["original_closing_rank"]  = row["closing_rank"]
+            cutoff = row["closing_rank"]
+            conflicting_lower_rows = [
+                lower_row
+                for lower_row in previous_rows
+                if lower_row["closing_rank"] > cutoff
+            ]
 
-                # overwrite with the better probability so the card still shows
-                # something useful rather than a misleadingly low number
-                row["probability"]            = best_prob
-                row["chance"]                 = get_chance_category(best_prob)
-                row["color"]                  = get_chance_color(row["chance"])
-                row["emoji"]                  = get_emoji_for_probability(best_prob)
-                row["recommendation_score"]   = calculate_recommendation_score(
-                    best_prob, row["responses"], row["fee"], campus, branch
+            if conflicting_lower_rows:
+                row["data_insufficient"] = True
+                row["data_issue_type"] = "category_cutoff_order"
+
+            for lower_row in conflicting_lower_rows:
+                lower_row["data_insufficient"] = True
+                lower_row["data_issue_type"] = "category_cutoff_order"
+
+                lower_issue = {
+                    "fee": row["fee"],
+                    "cutoff": cutoff,
+                    "relationship": "higher",
+                }
+                higher_issue = {
+                    "fee": lower_row["fee"],
+                    "cutoff": lower_row["closing_rank"],
+                    "relationship": "lower",
+                }
+
+                if lower_issue not in lower_row["category_cutoff_issues"]:
+                    lower_row["category_cutoff_issues"].append(lower_issue)
+                if higher_issue not in row["category_cutoff_issues"]:
+                    row["category_cutoff_issues"].append(higher_issue)
+
+            previous_rows.append(row)
+
+        for row in rows_by_fee:
+            if row.get("category_cutoff_issues"):
+                row["category_cutoff_issues"].sort(
+                    key=lambda issue: get_fee_priority(issue["fee"])
                 )
-
             result.append(row)
 
     return result

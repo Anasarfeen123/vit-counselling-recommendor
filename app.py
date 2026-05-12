@@ -7,7 +7,13 @@ import plotly.graph_objects as go
 import streamlit as st
 
 import database as db
-from load_data import ACTIVE_DATA_YEAR, get_reports, master_df, submit_report
+from load_data import (
+    ACTIVE_DATA_YEAR,
+    data_share_form_url,
+    get_reports,
+    master_df,
+    submit_report,
+)
 from recommender import get_rank_statistics, get_recommendations_by_category, recommend
 
 # =====================================================
@@ -1507,7 +1513,9 @@ st.sidebar.markdown("**Help improve predictions by sharing your counselling resu
 col1, col2 = st.sidebar.columns(2)
 with col1:
     st.link_button(
-        "📋 Submit 2025", "https://forms.gle/VG28i72zpKetFA4W6", width="stretch"
+        f"📋 Submit {ACTIVE_DATA_YEAR}",
+        data_share_form_url(ACTIVE_DATA_YEAR),
+        width="stretch",
     )
 with col2:
     st.info("Share your rank & allotment", icon="ℹ️")
@@ -1604,9 +1612,14 @@ def result_card_parts(r, rank, kind, *, prob_extra_class=""):
     badge_html = f'<span class="badge {badge_map[kind]}">{badge_text[kind]}</span>'
 
     if r.get("data_insufficient"):
+        issue_label = (
+            "⚠ Data Issue"
+            if r.get("data_issue_type") == "category_cutoff_order"
+            else "⚠ Data Insufficient"
+        )
         insuff_badge = (
             '<span class="badge badge-insufficient">'
-            "⚠ Data Insufficient"
+            f"{issue_label}"
             "</span>"
         )
     else:
@@ -1616,16 +1629,23 @@ def result_card_parts(r, rank, kind, *, prob_extra_class=""):
     conf_class = chip_class_from_confidence(r["confidence_pct"])
     buf_class = chip_class_from_buffer(diff)
 
-    if r.get("data_insufficient"):
-        orig_prob = r.get("original_probability", r["probability"])
-        dom_fee = r.get("dominant_fee", "a cheaper category")
+    if r.get("data_issue_type") == "category_cutoff_order":
+        conflicts = r.get("category_cutoff_issues") or []
+        conflict_bits = [
+            f"Cat <strong>{issue['fee']}</strong> cutoff <strong>{issue['cutoff']:,}</strong>"
+            for issue in conflicts[:3]
+        ]
+        conflict_text = "; ".join(conflict_bits) if conflict_bits else "another fee category conflicts with it"
         reason = (
-            f"<strong>Data Insufficient</strong> — "
-            f"Fee Category <strong>{dom_fee}</strong> of the same branch/campus already shows "
-            f"<strong>{r['probability']:.0f}%</strong> probability (higher than this category's "
-            f"raw <strong>{orig_prob:.0f}%</strong>). "
-            f"Probability shown here is adjusted to match — prefer Cat {dom_fee} if possible. "
-            f"Submit more data to improve this estimate."
+            f"<strong>Data Issue</strong> — fee category cutoffs for this same branch/campus "
+            f"are out of order. This row has Cat <strong>{r['fee']}</strong> cutoff "
+            f"<strong>{r['closing_rank']:,}</strong>, but {conflict_text}. "
+            f"Treat both affected categories as insufficient until more data is available."
+        )
+    elif r.get("data_insufficient"):
+        reason = (
+            "<strong>Data Insufficient</strong> — this category does not have enough "
+            "consistent data yet. Submit more allotment data to improve this estimate."
         )
     else:
         reason = recommendation_reason(r)
@@ -1645,13 +1665,21 @@ def result_card_parts(r, rank, kind, *, prob_extra_class=""):
     else:
         spread_chip = ""
 
-    if r.get("data_insufficient"):
+    if r.get("original_probability") is not None:
         orig_prob = r.get("original_probability", r["probability"])
         orig_chip = (
             '<div class="chip warn">'
             '<span class="chip-label">Raw Prob</span>'
             f'<span class="chip-value">{orig_prob:.0f}%</span>'
             '<span class="chip-sub">before adjust</span>'
+            "</div>"
+        )
+    elif r.get("data_issue_type") == "category_cutoff_order":
+        orig_chip = (
+            '<div class="chip warn">'
+            '<span class="chip-label">Data Issue</span>'
+            '<span class="chip-value">Check</span>'
+            '<span class="chip-sub">fee cutoff order</span>'
             "</div>"
         )
     else:
